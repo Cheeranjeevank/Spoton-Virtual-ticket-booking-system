@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpotOn Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    /* Toast notification styling */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--primary, #6ea8fe);
+      color: white;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.4s ease;
+      z-index: 9999;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body class="dash-body">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <a href="#" class="logo">Spot<span>On</span></a>
+    <nav>
+      <a href="#" class="active">Dashboard</a>
+      <a href="#">Bookings</a>
+      <a href="#">Profile</a>
+      <a href="#" id="logoutBtn">Logout</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="dash-main">
+    <div class="dash-topbar">
+      <button id="sidebarToggle" class="icon-btn">☰</button>
+      <h2>Welcome to your Dashboard</h2>
+      <div class="grow"></div>
+
+      <!-- 🌙☀️ Theme Button -->
+      <button id="dashThemeBtn" class="icon-btn theme" aria-label="Toggle Theme"
+              data-emoji-dark="🌙" data-emoji-light="☀️">🌙</button>
+      <img src="assets/user.png" alt="User Avatar" class="avatar" />
+    </div>
+
+    <!-- KPI Cards -->
+    <section class="dash-cards">
+      <div class="kpi">
+        <div class="kpi-label">Total Bookings</div>
+        <div id="totalBookings" class="kpi-value">0</div>
+        <div class="kpi-trend up" id="trendText">Loading...</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Upcoming Shows</div>
+        <div id="upcomingShows" class="kpi-value">0</div>
+        <div class="kpi-trend">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Spent</div>
+        <div class="kpi-value">₹0</div>
+        <div class="kpi-trend">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Rewards</div>
+        <div class="kpi-value">0 pts</div>
+      </div>
+    </section>
+
+    <!-- Panels -->
+    <section class="dash-panels">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Recent Bookings</h3>
+          <button class="btn sm ghost" onclick="loadBookings()">🔄 Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>#</th><th>Show</th><th>Date</th><th>Seat</th><th>Status</th></tr>
+            </thead>
+            <tbody id="bookingsBody">
+              <tr><td colspan="5">Loading bookings...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Performance</h3>
+        </div>
+        <canvas id="salesChart" height="220"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast container -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Socket.IO + main scripts -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="script.js"></script>
+
+  <script>
+    // Redirect if not logged in
+    if (!localStorage.getItem("token")) {
+      window.location.href = "login.html";
+    }
+
+    const token = localStorage.getItem("token");
+
+    // ---- Fetch and Render Bookings ----
+    async function loadBookings() {
+      try {
+        const res = await fetch("/api/bookings", {
+          headers: { Authorization: "Bearer " + token }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById("bookingsBody");
+        const totalEl = document.getElementById("totalBookings");
+        const upcomingEl = document.getElementById("upcomingShows");
+        const trendEl = document.getElementById("trendText");
+
+        tbody.innerHTML = "";
+
+        if (!res.ok) {
+          tbody.innerHTML = `<tr><td colspan="5">❌ ${data.message || "Failed to load bookings"}</td></tr>`;
+          return;
+        }
+
+        if (data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5">No bookings yet.</td></tr>`;
+          totalEl.textContent = "0";
+          trendEl.textContent = "No activity";
+          return;
+        }
+
+        // Update KPI stats
+        totalEl.textContent = data.length;
+        upcomingEl.textContent = Math.min(data.length, 3);
+        trendEl.textContent = "+ Active user";
+
+        // Render table rows
+        data.forEach((b, i) => {
+          const tr = document.createElement("tr");
+          const date = new Date(b.time).toLocaleDateString();
+          tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${b.show}</td>
+            <td>${date}</td>
+            <td>${b.seat}</td>
+            <td><span class="badge success">Confirmed</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Error loading bookings:", err);
+        document.getElementById("bookingsBody").innerHTML =
+          `<tr><td colspan="5">❌ Server unreachable</td></tr>`;
+      }
+    }
+
+    // ---- Realtime updates via Socket.IO ----
+    const socket = io("http://localhost:5503"); // match backend port
+
+    socket.on("connect", () => {
+      console.log("✅ Connected to Socket.IO server");
+    });
+
+    socket.on("bookingCreated", (booking) => {
+      console.log("🎟️ New booking received:", booking);
+      showToast(`🎟️ New booking confirmed — Seat ${booking.seat} for ${booking.show}`);
+      loadBookings(); // instantly refresh
+    });
+
+    // Toast popup handler
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+
+    // Initial load
+    loadBookings();
+
+    // ---- Logout ----
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    });
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>

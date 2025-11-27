@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SpotOn — Select Screen</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="nav-header">
+    <a href="venues.html" class="logo-link"><h1 class="logo">🎟️ SpotOn</h1></a>
+    <div>
+      <button id="backBtn" class="btn-secondary">Back</button>
+      <button id="logoutBtn" class="btn-secondary">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2 id="pageTitle" class="page-title">Select Screen</h2>
+    <div id="screensContainer" class="cards-grid"></div>
+    <h2 class="page-title" style="margin-top:2rem">Quick Seat Preview</h2>
+    <div id="seatGridPreview" class="seat-preview"></div>
+    <p id="screensMsg" class="muted" style="text-align:center;margin-top:1rem"></p>
+  </main>
+
+<script>
+/* Auto API */
+function getApiBase() {
+  const origin = window.location.origin;
+
+  // DevTunnel – backend & frontend share same host
+  if (origin.includes(".devtunnels.ms")) {
+    return origin + "/api";
+  }
+
+  // Localhost
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+    return "http://localhost:5503/api";
+  }
+
+  return origin + "/api";
+}
+const API_BASE = getApiBase();
+
+/* Auth + venue */
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+const selectedVenue = JSON.parse(localStorage.getItem("selectedVenue") || "{}");
+if (!selectedVenue.name) location.href = "venues.html";
+const venue = selectedVenue;
+
+/* UI refs */
+const pageTitle = document.getElementById("pageTitle");
+const container = document.getElementById("screensContainer");
+const screensMsg = document.getElementById("screensMsg");
+document.getElementById("backBtn").addEventListener("click", ()=> location.href = "venues.html");
+document.getElementById("logoutBtn").addEventListener("click", ()=>{
+  localStorage.removeItem("token"); localStorage.removeItem("selectedVenue");
+  location.href = "login.html";
+});
+
+/* Load screens from server showdata */
+async function loadScreens(){
+  pageTitle.textContent = `Select Screen — ${venue.name}`;
+  screensMsg.textContent = "Loading screens...";
+  try {
+    const res = await fetch(`${API_BASE}/showdata/${encodeURIComponent(venue.name)}`);
+    const data = await res.json();
+    if (!data || Object.keys(data).length === 0) {
+      screensMsg.textContent = "No screens found for this venue.";
+      return;
+    }
+
+    container.innerHTML = "";
+    // data is { "Screen Name": [timings] }
+    Object.keys(data).forEach(screen => {
+      const timings = data[screen] || [];
+      const card = document.createElement("div");
+      card.className = "screen-card";
+      card.innerHTML = `
+        <h3>${screen}</h3>
+        <p class="muted">${timings.length} shows</p>
+        <div class="mini-seatmap">
+          <div class="mini-row">
+            <div class="mini-seat vip"></div><div class="mini-seat premium"></div><div class="mini-seat normal"></div>
+          </div>
+        </div>
+        <div style="margin-top:.7rem">
+          <button class="btn-primary" data-screen="${screen}">Select</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    screensMsg.textContent = "";
+  } catch (err) {
+    screensMsg.textContent = "Failed to load screens.";
+    console.error(err);
+  }
+}
+
+/* Click to select screen */
+document.addEventListener("click", (e)=>{
+  if (e.target.matches(".btn-primary") && e.target.dataset.screen) {
+    const screen = e.target.dataset.screen;
+    localStorage.setItem("selectedScreen", screen);
+    localStorage.removeItem("selectedTime");
+    location.href = "timings.html";
+  }
+});
+
+loadScreens();
+
+// Dynamic Seat Preview (sync with seatConfig used in backend)
+const seatConfig = {
+  rows: ["A","B","C","D","E"],
+  rowToCategory: {
+    A:"VIP", B:"VIP",
+    C:"Premium",
+    D:"Normal", E:"Normal"
+  },
+  colors: {
+    VIP: "#f59e0b",
+    Premium: "#7c3aed",
+    Normal: "#6ea8fe"
+  },
+  seatsPerRow: 8
+};
+
+function renderSeatPreview() {
+  const preview = document.getElementById("seatGridPreview");
+  preview.innerHTML = "";
+
+  seatConfig.rows.forEach(row => {
+    const rowDiv = document.createElement("div");
+    rowDiv.className = "seat-row";
+    const color = seatConfig.colors[ seatConfig.rowToCategory[row] ];
+
+    for (let i = 1; i <= seatConfig.seatsPerRow; i++) {
+      const seat = document.createElement("div");
+      seat.className = "seat-box";
+      seat.style.borderColor = color;
+      rowDiv.appendChild(seat);
+    }
+    preview.appendChild(rowDiv);
+  });
+}
+
+renderSeatPreview();
+</script>
+
+<style>
+  :root{--panel:#0f1318;--text:#f6f7f9;--muted:#c2c7d1;--primary:#6ea8fe;--accent:#a78bfa}
+  body{background:#0b0d10;color:var(--text);font-family:Inter,system-ui;margin:0}
+  .nav-header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--panel)}
+  .container{max-width:1000px;margin:2rem auto;padding:1rem}
+  .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
+  .screen-card{background:var(--panel);padding:1rem;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  .muted{color:var(--muted)}
+  .btn-primary{background:var(--primary);border:none;color:#fff;padding:.45rem .8rem;border-radius:8px;cursor:pointer}
+  .btn-secondary{background:none;border:1px solid rgba(255,255,255,.08);color:var(--text);padding:.4rem .7rem;border-radius:8px}
+  .seat-box {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: #2a2f3a;
+    border: 2px solid #6ea8fe;
+  }
+  .seat-row {
+    display: flex;
+    gap: .35rem;
+    justify-content: center;
+    margin-bottom: .4rem;
+  }
+  .seat-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 1rem;
+  }
+  .seat-row {
+    display: flex;
+    gap: .35rem;
+    margin-bottom: .35rem;
+  }
+  .seat-box {
+    width: 28px;
+    height: 28px;
+    background: #2a2f3a;
+    border-radius: 6px;
+    border: 2px solid #6ea8fe;
+  }
+</style>
+<script src="script.js"></script>
+</body>
+</html>

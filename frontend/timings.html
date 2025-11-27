@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>SpotOn — Select Time</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <header class="nav-header">
+    <a href="screens.html" class="logo-link"><h1 class="logo">🎟️ SpotOn</h1></a>
+    <div>
+      <button id="backBtn" class="btn-secondary">Back</button>
+      <button id="logoutBtn" class="btn-secondary">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2 id="title" class="page-title">Select Show Time</h2>
+    <div id="timingsContainer" class="time-grid"></div>
+    <p id="timeMsg" class="muted" style="text-align:center;margin-top:1rem"></p>
+  </main>
+
+<script>
+/* Auto API */
+function getApiBase() {
+  const origin = window.location.origin;
+
+  // DevTunnel — backend and frontend share same origin
+  if (origin.includes(".devtunnels.ms")) {
+    return origin + "/api";
+  }
+
+  // Local development
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+    return "http://localhost:5503/api";
+  }
+
+  // Production / default
+  return origin + "/api";
+}
+const API_BASE = getApiBase();
+
+/* Auth + selection */
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+const selVenueStr = localStorage.getItem("selectedVenue");
+if (!selVenueStr) location.href = "venues.html";
+const venue = JSON.parse(selVenueStr);
+const selectedScreen = localStorage.getItem("selectedScreen");
+if (!selectedScreen) location.href = "screens.html";
+
+/* UI refs */
+document.getElementById("backBtn").addEventListener("click", ()=> location.href = "screens.html");
+document.getElementById("logoutBtn").addEventListener("click", ()=> {
+  localStorage.removeItem("token"); location.href = "login.html";
+});
+
+const title = document.getElementById("title");
+const container = document.getElementById("timingsContainer");
+const timeMsg = document.getElementById("timeMsg");
+
+/* Load timings for chosen screen from backend */
+async function loadTimings(){
+  title.textContent = `Select Time — ${venue.name} • ${selectedScreen}`;
+  timeMsg.textContent = "Loading times...";
+  try {
+    const res = await fetch(`${API_BASE}/showdata/${encodeURIComponent(venue.name)}`);
+    const data = await res.json();
+    const timings = data && data[selectedScreen] ? data[selectedScreen] : [];
+
+    if (!timings.length) {
+      timeMsg.textContent = "No show timings available for this screen.";
+      return;
+    }
+
+    container.innerHTML = "";
+    timings.forEach(t => {
+      const slot = document.createElement("div");
+      slot.className = "time-slot";
+      slot.textContent = t;
+      slot.style.cursor = "pointer";
+      slot.addEventListener("click", ()=> selectTime(t));
+      container.appendChild(slot);
+    });
+
+    timeMsg.textContent = "";
+  } catch (err) {
+    timeMsg.textContent = "Failed to load timings.";
+    console.error(err);
+  }
+}
+
+/* choose time -> store selectedTime and go to seat selection */
+function selectTime(t){
+  localStorage.setItem("selectedTime", t);
+  // Go to calendar for date selection instead of seat selection
+  location.href = "calendar.html";
+}
+
+loadTimings();
+</script>
+
+<style>
+  :root{--panel:#0f1318;--text:#f6f7f9;--muted:#c2c7d1;--primary:#6ea8fe}
+  body{background:#0b0d10;color:var(--text);font-family:Inter,system-ui;margin:0}
+  .nav-header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--panel)}
+  .container{max-width:900px;margin:2rem auto;padding:1rem}
+  .time-grid{display:flex;flex-wrap:wrap;gap:.75rem}
+  .time-slot{background:var(--panel);padding:.6rem 1rem;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  .btn-secondary{background:none;border:1px solid rgba(255,255,255,.08);color:var(--text);padding:.4rem .7rem;border-radius:8px}
+  .muted{color:var(--muted)}
+</style>
+<script src="script.js"></script>
+</body>
+</html>

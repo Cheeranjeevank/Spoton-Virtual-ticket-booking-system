@@ -1,0 +1,220 @@
+<!-- main.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpotOn — Virtual ticket booking</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="icon" type="image/png" href="SpotOn.png">
+</head>
+
+<body>
+
+  <!-- Header / Nav -->
+  <header class="site-header">
+    <div class="container nav">
+      <a href="main.html" class="logo" style="cursor:pointer">SpotOn<span>.</span></a>
+
+      <nav id="primaryNav" class="nav-links">
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#services">Services</a>
+        <a href="#contact">Contact</a>
+        <a class="btn ghost sm" href="login.html">Login</a>
+        <a class="btn sm" href="dashboard.html">Dashboard</a>
+      </nav>
+
+      <button id="menuBtn" class="icon-btn" aria-label="Toggle Menu" aria-expanded="false">
+        <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+      </button>
+
+      <button id="themeBtn" class="icon-btn theme" aria-label="Toggle Theme">🌙</button>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section id="home" class="section hero">
+    <div class="container hero-grid">
+
+      <div class="hero-copy">
+        <h1>Experience your New reality with SpotOn.</h1>
+        <p>The first Virtual Reality (VR) ticket booking platform.</p>
+
+        <div class="cta">
+          <a class="btn lg" href="login.html">Login / Signup</a>
+
+          <!-- Updated booking flow entry -->
+          <a class="btn ghost lg" href="venues.html">Book Seats (VR Preview)</a>
+        </div>
+
+        <ul class="benefits">
+          <li>VR Seats</li>
+          <li>Better Experience</li>
+          <li>Your Seat. Your View</li>
+        </ul>
+      </div>
+
+      <!-- ART + VIDEO -->
+      <div class="hero-art" aria-hidden="true" style="position: relative; width: 600px; height: 400px;">
+
+        <svg viewBox="0 0 600 400" width="600" height="400">
+          <defs>
+            <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stop-color="#6ea8fe"/>
+              <stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+
+            <clipPath id="videoClip">
+              <rect x="0" y="0" width="600" height="400" />
+            </clipPath>
+          </defs>
+
+          <rect width="600" height="400" fill="url(#g1)"/>
+        </svg>
+
+        <video autoplay muted loop playsinline 
+               width="600" height="400"
+               style="clip-path:url(#videoClip); object-fit:cover; position:absolute; top:0; left:0;">
+          <source src="SpotOn3.mp4" type="video/mp4"/>
+          Your browser does not support video.
+        </video>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- About -->
+  <section id="about" class="section">
+    <div class="container two-col">
+
+      <div>
+        <h2>About SpotOn</h2>
+        <p><strong>SpotOn</strong> is your next-generation <strong>Virtual Reality (VR)</strong> ticket booking platform. Explore seats in 360° before booking to choose your perfect spot.</p>
+
+        <ul class="checklist">
+          <li>360° Seat Preview</li>
+          <li>Smoother Booking Experience</li>
+          <li>Dark Mode Support</li>
+        </ul>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature">
+          <div class="icon">💎</div>
+          <div>
+            <h3>Comfortable 180° / 360° View</h3>
+            <p>Preview your seat’s real view before booking.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="icon">📦</div>
+          <div>
+            <h3>Easy & Comfy</h3>
+            <p>Your comfort seat. Your easy booking.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="icon">🚀</div>
+          <div>
+            <h3>Performance</h3>
+            <p>No frameworks; tiny CSS & JS footprint.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Services -->
+  <section id="services" class="section alt">
+    <div class="container">
+      <h2 class="center">Services</h2>
+      <div class="cards">
+
+        <article class="card">
+          <h3>Ticket Booking</h3>
+          <p>Book tickets the modern way with VR seat previews.</p>
+          <a class="btn sm" href="venues.html">Book Now</a>
+        </article>
+
+        <article class="card">
+          <h3>VR Experience</h3>
+          <p>Experience immersive virtual theatre previews.</p>
+          <a class="btn sm" href="login.html">Start Now</a>
+        </article>
+
+        <article class="card">
+          <h3>UPI Lite</h3>
+          <p>Pay easily with UPI Lite for tickets under ₹500.</p>
+          <a class="btn sm" href="login.html">Pay Now</a>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section id="contact" class="section">
+    <div class="container two-col">
+
+      <div>
+        <h2>Contact</h2>
+        <p>Have an idea to improve SpotOn? Let’s talk.</p>
+        <ul class="contact-list">
+          <li>📧 hello@SpotOn.site</li>
+          <li>📞 +91 63792 18990</li>
+          <li>📍 Coimbatore, India</li>
+        </ul>
+      </div>
+
+      <form id="contactForm" class="form">
+        <label>
+          <span>Name</span>
+          <input type="text" name="name" required>
+        </label>
+
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" required>
+        </label>
+
+        <label>
+          <span>Message</span>
+          <textarea name="message" rows="4" required></textarea>
+        </label>
+
+        <button type="submit" class="btn">Send</button>
+        <p id="formMsg" class="muted"></p>
+      </form>
+
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="logo" href="#">SpotOn<span>.</span></a>
+        <p class="muted">© <span id="year"></span> SpotOn. All rights reserved.</p>
+      </div>
+
+      <nav class="footer-links">
+        <a href="#about">About</a>
+        <a href="#services">Services</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+
+</body>
+</html>

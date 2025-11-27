@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Payment • SpotOn</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<main class="container">
+  <h2>Payment</h2>
+  <div id="checkout"></div>
+  <div style="margin-top:1rem">
+    <button id="confirmPay" class="btn-primary">Pay (Mock)</button>
+  </div>
+  <p id="msg" class="muted"></p>
+</main>
+
+<script>
+function getApiBase(){ const origin = window.location.origin;
+  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
+  if (origin.includes("localhost")) return "http://localhost:5503/api";
+  return origin + "/api";
+}
+const API_BASE = getApiBase();
+const payload = JSON.parse(localStorage.getItem("checkoutPayload") || "{}");
+const msg = document.getElementById("msg");
+if(!payload || !payload.seats) location.href = "venues.html";
+document.getElementById("checkout").innerHTML = `
+  <p><strong>${payload.venue}</strong> • ${payload.screen} • ${payload.time} • ${payload.date}</p>
+  <p>${payload.seats.map(s=>s.seat+" ("+s.category+")").join(", ")}</p>
+  <h3>Total: ₹${payload.total}</h3>
+`;
+
+document.getElementById("confirmPay").onclick = async ()=>{
+  msg.textContent = "Processing payment (mock)...";
+  // simulate payment success
+  setTimeout(async ()=>{
+    // After "payment", call atomic booking endpoint
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_BASE}/bookings/multi`, {
+        method: "POST",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":"Bearer " + token
+        },
+        body: JSON.stringify({
+          show: `${payload.venue} - ${payload.screen} - ${payload.time} - ${payload.date}`,
+          seats: payload.seats.map(s=>s.seat),
+          meta: { total: payload.total }
+        })
+      });
+      const data = await res.json();
+      if (!res.ok){
+        msg.textContent = data.message || "Booking failed";
+        return;
+      }
+      // store booking id for ticket generation
+      localStorage.setItem("lastBooking", JSON.stringify(data.booking));
+      window.location.href = "ticket.html";
+    } catch (err){
+      console.error(err);
+      msg.textContent = "Server error";
+    }
+  }, 800);
+};
+</script>
+<script src="script.js"></script>
+</body>
+</html>

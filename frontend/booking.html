@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎟️ SpotOn — Seat Booking</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg, #0b0d10);
+      color: var(--text, #f6f7f9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    header {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-weight: 700;
+      font-size: 1.4rem;
+      color: var(--primary, #6ea8fe);
+    }
+
+    .booking-container {
+      background: var(--panel, #101418);
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 0.8rem;
+    }
+
+    select {
+      padding: 0.6rem;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border, #333);
+      background: var(--bg, #0b0d10);
+      color: var(--text, #f6f7f9);
+    }
+
+    .seat-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .seat {
+      background: var(--panel, #1a1d23);
+      border: 1px solid var(--border, #333);
+      color: var(--text, #f6f7f9);
+      border-radius: 8px;
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .seat:hover:not(.booked):not(.selected) {
+      background: var(--primary, #6ea8fe);
+      color: #fff;
+    }
+
+    .seat.selected {
+      background: var(--accent, #a78bfa);
+      color: #fff;
+      border-color: var(--accent, #a78bfa);
+    }
+
+    .seat.booked {
+      background: #444;
+      color: #aaa;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+
+    button.btn {
+      background: var(--primary, #6ea8fe);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button.btn:hover {
+      background: var(--accent, #a78bfa);
+    }
+
+    #msg {
+      margin-top: 10px;
+      font-size: 0.95rem;
+    }
+
+    .logout {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: transparent;
+      color: var(--text, #f6f7f9);
+      border: 1px solid var(--border, #333);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    /* Toast message */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--primary, #6ea8fe);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.4s ease;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <header>🎟️ <strong>SpotOn.</strong></header>
+  <button id="logoutBtn" class="logout">Logout</button>
+
+  <div class="booking-container">
+    <h1>Seat Booking</h1>
+    <p>Select a show and book your preferred seat in real-time.</p>
+
+    <label for="showSelect">Choose a show:</label><br>
+    <select id="showSelect">
+      <option>VR Movie Night</option>
+      <option>Concert Night</option>
+      <option>IPL Finals</option>
+    </select>
+
+    <div id="seatContainer" class="seat-grid"></div>
+
+    <button id="bookBtn" class="btn">Book Selected Seat</button>
+    <p id="msg" class="muted"></p>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+  <script>
+    // Auto API detection (works for localhost & devtunnel)
+    const API_BASE = "http://localhost:5503/api";
+
+    const token = localStorage.getItem("token");
+    const showSelect = document.getElementById("showSelect");
+    const seatContainer = document.getElementById("seatContainer");
+    const msg = document.getElementById("msg");
+    const bookBtn = document.getElementById("bookBtn");
+    const toast = document.getElementById("toast");
+
+    let selectedSeat = null;
+
+    // 🧭 Redirect if not logged in
+    if (!token) {
+      window.location.href = "login.html";
+    }
+
+    // 🚪 Logout
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    });
+
+    // 🍿 Load available seats
+    async function loadSeats() {
+      const show = showSelect.value;
+      seatContainer.innerHTML = "<p>Loading seats...</p>";
+      try {
+        const res = await fetch(`${API_BASE}/seats/${encodeURIComponent(show)}`);
+        const data = await res.json();
+        seatContainer.innerHTML = "";
+
+        data.seats.forEach(seat => {
+          const btn = document.createElement("button");
+          btn.textContent = seat;
+          btn.className = "seat " + (data.booked.includes(seat) ? "booked" : "");
+          btn.disabled = data.booked.includes(seat);
+
+          btn.addEventListener("click", () => {
+            document.querySelectorAll(".seat.selected").forEach(s => s.classList.remove("selected"));
+            btn.classList.add("selected");
+            selectedSeat = seat;
+          });
+
+          seatContainer.appendChild(btn);
+        });
+      } catch (err) {
+        console.error("Seat load error:", err);
+        msg.textContent = "❌ Failed to load seat map.";
+      }
+    }
+
+    // 🎟️ Book seat
+    bookBtn.addEventListener("click", async () => {
+      const show = showSelect.value;
+      if (!selectedSeat) {
+        msg.textContent = "⚠️ Please select a seat first.";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/booking`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ seat: selectedSeat, show })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = "✅ " + data.message;
+          showToast(`🎟️ Seat ${selectedSeat} booked for ${show}`);
+          selectedSeat = null;
+          loadSeats();
+        } else {
+          msg.textContent = "❌ " + data.message;
+        }
+      } catch (err) {
+        msg.textContent = "❌ Server unreachable.";
+        console.error(err);
+      }
+    });
+
+    // 🔄 Reload seat map on show change
+    showSelect.addEventListener("change", loadSeats);
+
+    // 🔔 Toast message
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+
+    // 💬 Realtime updates via Socket.IO
+    const socket = io(API_BASE.replace("/api", ""));
+    socket.on("connect", () => console.log("✅ Connected to realtime server"));
+    socket.on("bookingCreated", (booking) => {
+      showToast(`⚡ Seat ${booking.seat} just booked for ${booking.show}`);
+      loadSeats(); // instantly refresh map
+    });
+
+    // Initial load
+    loadSeats();
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>

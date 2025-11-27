@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Booking Summary • SpotOn</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<main class="container">
+  <h2>Booking Summary</h2>
+  <div id="info"></div>
+  <div style="margin-top:1rem">
+    <button id="payBtn" class="btn-primary">Proceed to Payment</button>
+    <button id="cancelBtn" class="btn ghost" style="margin-left:.5rem">Modify</button>
+  </div>
+  <p id="msg" class="muted"></p>
+</main>
+
+<script>
+function getApiBase(){ const origin = window.location.origin;
+  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
+  if (origin.includes("localhost")) return "http://localhost:5503/api";
+  return origin + "/api";
+}
+const API_BASE = getApiBase();
+
+const venue = JSON.parse(localStorage.getItem("selectedVenue") || '{}');
+const screen = localStorage.getItem("selectedScreen");
+const time = localStorage.getItem("selectedTime");
+const date = localStorage.getItem("selectedDate");
+const seats = JSON.parse(localStorage.getItem("selectedSeats") || "[]");
+const info = document.getElementById("info");
+const msg = document.getElementById("msg");
+
+if(!venue.name || !screen || !time || !date || seats.length===0){
+  location.href = "venues.html";
+}
+
+let total = 0;
+let html = `<p><strong>Venue:</strong> ${venue.name}</p>
+<p><strong>Screen:</strong> ${screen}</p>
+<p><strong>Time:</strong> ${time}</p>
+<p><strong>Date:</strong> ${date}</p>
+<h3>Seats</h3>`;
+
+seats.forEach(s=>{
+  html += `<p>${s.seat} — ${s.category} — ₹${s.price}</p>`;
+  total += s.price;
+});
+html += `<h2>Total: ₹${total}</h2>`;
+info.innerHTML = html;
+
+document.getElementById("cancelBtn").onclick = ()=> window.location.href = "seatSelection.html";
+document.getElementById("payBtn").onclick = async () => {
+  msg.textContent = "Processing booking...";
+
+  const token = localStorage.getItem("token");
+  if (!token) {
+    msg.textContent = "Login required.";
+    return location.href = "login.html";
+  }
+
+  // Build payload for backend multi‑seat booking
+  const rawSeats = seats.map(s => s.seat);
+  const showId = `${venue.name} - ${screen} - ${time} - ${date}`;
+
+  const payload = {
+    show: showId,
+    seats: rawSeats
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/bookings/multi`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      msg.textContent = data.message || "Booking failed.";
+      return;
+    }
+
+    // Save backend booking result
+    localStorage.setItem("lastBooking", JSON.stringify(data.booking));
+
+    msg.textContent = "Booking successful! Generating ticket...";
+    setTimeout(() => {
+      window.location.href = "ticket.html";
+    }, 700);
+
+  } catch (err) {
+    msg.textContent = "Server/network error.";
+    console.error(err);
+  }
+};
+</script>
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SpotOn — Select Venue</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="nav-header">
+    <a href="main.html" class="logo-link"><h1 class="logo">🎟️ SpotOn</h1></a>
+    <div>
+      <button id="refreshBtn" class="btn-secondary">Refresh</button>
+      <button id="logoutBtn" class="btn-secondary">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2 class="page-title">Select Your Venue</h2>
+    <p class="subtitle">Choose from the available venues to proceed with your booking.</p>
+
+    <div id="venuesContainer" class="venue-grid"></div>
+
+    <p id="venMsg" class="muted" style="text-align:center;margin-top:1rem;"></p>
+  </main>
+
+<script>
+/* ---------- AUTO API DETECTION ---------- */
+function getApiBase(){
+  const origin = window.location.origin;
+  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) return "http://localhost:5503/api";
+  return origin + "/api";
+}
+const API_BASE = getApiBase();
+
+/* ---------- AUTH CHECK ---------- */
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+/* ---------- UI refs ---------- */
+const container = document.getElementById("venuesContainer");
+const venMsg = document.getElementById("venMsg");
+const refreshBtn = document.getElementById("refreshBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+
+/* ---------- Fetch venues from backend, fallback to sample ---------- */
+async function loadVenues(){
+  container.innerHTML = "";
+  venMsg.textContent = "Loading venues...";
+  try {
+    const res = await fetch(`${API_BASE}/theaters`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    let data;
+    try { data = await res.json(); } catch { data = null; }
+    const venues = (Array.isArray(data) && data.length) ? data : [
+      { name: "PVR Cinemas", location: "Chennai", image: "PVR.jpg" },
+      { name: "INOX City Center", location: "Coimbatore", image: "INOX.jpeg" },
+      { name: "Sathyam Cinemas", location: "Madurai", image: "SATHYAM.png" },
+      { name: "Luxe IMAX", location: "Bangalore", image: "IMAX.jpeg" }
+    ];
+
+    venues.forEach(v => {
+      const card = document.createElement("div");
+      card.className = "venue-card";
+      card.innerHTML = `
+        <img src="${v.image || v.img || v.imageUrl || 'assets/images/default-venue.jpg'}" alt="${v.name}" class="venue-img" />
+        <div class="venue-info">
+          <h3>${v.name}</h3>
+          <p>${v.location || ""}</p>
+          <div style="display:flex;gap:.5rem;margin-top:.5rem">
+            <button class="btn-primary" data-name="${v.name}">Select</button>
+            <button class="btn ghost sm" data-preview="${v.name}">Preview</button>
+          </div>
+        </div>`;
+      container.appendChild(card);
+    });
+
+    venMsg.textContent = "";
+  } catch (err) {
+    venMsg.textContent = "Failed to load venues.";
+    console.error(err);
+  }
+}
+
+/* ---------- Click handlers ---------- */
+document.addEventListener("click", (e)=>{
+  if (e.target.matches(".btn-primary")) {
+      let name = e.target.getAttribute("data-name") || "";
+      name = name.replace(/\s+/g, " ").trim();
+
+      const card = e.target.closest(".venue-card");
+      const img = card.querySelector(".venue-img").src;
+      const loc = (card.querySelector("p").textContent || "").trim();
+
+      const selectedVenue = {
+        name,
+        location: loc,
+        image: img
+      };
+
+      localStorage.setItem("selectedVenue", JSON.stringify(selectedVenue));
+      localStorage.removeItem("selectedScreen");
+      localStorage.removeItem("selectedTime");
+      location.href = "screens.html";
+  }
+  if (e.target.matches(".btn.ghost") || e.target.matches("button[data-preview]")) {
+    const n = e.target.getAttribute("data-preview");
+    alert(`Preview for ${n} (VR preview coming soon)`);
+  }
+});
+
+/* ---------- misc ---------- */
+refreshBtn.addEventListener("click", loadVenues);
+logoutBtn.addEventListener("click", ()=>{
+  localStorage.removeItem("token");
+  localStorage.removeItem("selectedVenue");
+  localStorage.removeItem("selectedScreen");
+  localStorage.removeItem("selectedTime");
+  location.href = "login.html";
+});
+
+/* ---------- init ---------- */
+loadVenues();
+</script>
+
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#0f1318; --text:#f6f7f9; --muted:#c2c7d1;
+    --primary:#6ea8fe; --accent:#a78bfa;
+  }
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui;margin:0}
+  .nav-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;background:var(--panel)}
+  .logo{color:var(--primary);margin:0}
+  .container{max-width:1100px;margin:2rem auto;padding:1rem}
+  .page-title{text-align:center;margin:0 0 .25rem}
+  .subtitle{text-align:center;color:var(--muted);margin-bottom:1.25rem}
+  .venue-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}
+  .venue-card{background:var(--panel);border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  .venue-img{width:100%;height:160px;object-fit:cover;display:block}
+  .venue-info{padding:0.9rem}
+  .venue-info h3{margin:0 0 .25rem}
+  .btn-secondary{background:none;border:1px solid rgba(255,255,255,.08);color:var(--text);padding:.5rem .75rem;border-radius:8px;cursor:pointer}
+  .btn-primary{background:var(--primary);border:none;color:#fff;padding:.45rem .8rem;border-radius:8px;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.06);color:var(--text);padding:.35rem .6rem;border-radius:8px}
+  .muted{color:var(--muted)}
+</style>
+<script src="script.js"></script>
+</body>
+</html>

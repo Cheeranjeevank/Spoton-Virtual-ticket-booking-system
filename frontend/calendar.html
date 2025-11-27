@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Select Date • SpotOn</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .date-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem}
+    .date-card{background:var(--panel);padding:1rem;border-radius:12px;text-align:center;cursor:pointer}
+    .date-card:hover{transform:translateY(-4px);background:rgba(110,168,254,0.12)}
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h2>Select Date</h2>
+    <p class="muted">Pick a date for your show</p>
+    <div id="dateGrid" class="date-grid"></div>
+  </main>
+
+<script>
+const days = 14; // next N days
+const grid = document.getElementById("dateGrid");
+for(let i=0;i<days;i++){
+  const d = new Date(); d.setDate(d.getDate()+i);
+  const iso = d.toISOString().split("T")[0];
+  const display = d.toDateString();
+  const card = document.createElement("div");
+  card.className = "date-card";
+  card.textContent = display;
+  card.onclick = ()=> {
+    localStorage.setItem("selectedDate", iso);
+    // next step is seat selection via summary flow; we go back to timings then seats
+    // if user already selected screen/time, go to seatSelection, else to timings
+    if(localStorage.getItem("selectedScreen") && localStorage.getItem("selectedTime")){
+      window.location.href = "seatSelection.html";
+    } else {
+      window.location.href = "timings.html";
+    }
+  };
+  grid.appendChild(card);
+}
+</script>
+<script src="script.js"></script>
+</body>
+</html>

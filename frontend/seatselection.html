@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SpotOn — Seat Selection</title>
+<link rel="stylesheet" href="style.css"/>
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+<body>
+<header class="nav-header">
+  <a href="timings.html" class="logo-link"><h1 class="logo">🎟️ SpotOn</h1></a>
+  <div>
+    <button id="backBtn" class="btn-secondary">Back</button>
+    <button id="logoutBtn" class="btn-secondary">Logout</button>
+  </div>
+</header>
+
+<main class="container">
+  <h2 id="showTitle" class="page-title">Select Your Seats</h2>
+
+  <div id="legend" style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem"></div>
+
+  <div id="seatContainer" style="display:flex;flex-direction:column;gap:.5rem"></div>
+
+  <div style="display:flex;gap:.75rem;align-items:center;margin-top:1rem">
+    <button id="summaryBtn" class="btn-primary">Proceed to Summary</button>
+    <p id="msg" class="muted" style="margin:0"></p>
+  </div>
+</main>
+
+<script>
+/* ---------- CONFIG (edit here) ---------- */
+const seatConfig = {
+  rows: ["A","B","C","D","E"],      // change rows
+  rowToCategory: {                 // assign row -> category
+    A: "VIP", B: "VIP",
+    C: "Premium",
+    D: "Normal", E: "Normal"
+  },
+  prices: {                        // price per category
+    VIP: 350,
+    Premium: 220,
+    Normal: 150
+  },
+  legendOrder: ["VIP","Premium","Normal"],
+  seatsPerRow: 8                   // seats per row (A1..A8 etc)
+};
+/* AUTO API */
+function getApiBase(){
+  const origin = window.location.origin;
+  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) return "http://localhost:5503/api";
+  return origin + "/api";
+}
+const API_BASE = getApiBase();
+
+/* SOCKET */
+const socket = io(API_BASE.replace("/api",""), { transports:["websocket"] });
+
+/* AUTH + STATE */
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+const venueObj = JSON.parse(localStorage.getItem("selectedVenue") || "null");
+if (!venueObj) location.href = "venues.html";
+const selectedScreen = localStorage.getItem("selectedScreen"); if (!selectedScreen) location.href = "screens.html";
+const selectedTime = localStorage.getItem("selectedTime"); if (!selectedTime) location.href = "timings.html";
+const selectedDate = localStorage.getItem("selectedDate") || new Date().toISOString().split("T")[0];
+
+/* show id includes date */
+const showId = `${venueObj.name} - ${selectedScreen} - ${selectedTime} - ${selectedDate}`;
+document.getElementById("showTitle").textContent = `${venueObj.name} • ${selectedScreen} • ${selectedTime} • ${selectedDate}`;
+
+/* UI */
+const legendEl = document.getElementById("legend");
+const seatContainer = document.getElementById("seatContainer");
+const msg = document.getElementById("msg");
+const summaryBtn = document.getElementById("summaryBtn");
+
+let bookedSeats = [];     // currently booked (from server + live updates)
+let selectedSeats = [];   // seats user selected
+
+/* draw legend */
+function renderLegend(){
+  legendEl.innerHTML = "";
+  seatConfig.legendOrder.forEach(cat => {
+    const el = document.createElement("div");
+    el.innerHTML = `<div style="width:18px;height:18px;border-radius:4px;display:inline-block;margin-right:.5rem;background:${categoryColor(cat)}"></div> ${cat} — ₹${seatConfig.prices[cat]||0}`;
+    legendEl.appendChild(el);
+  });
+}
+function categoryColor(cat){
+  // deterministic color pick
+  if(cat.toLowerCase().includes("vip")) return "#f59e0b";
+  if(cat.toLowerCase().includes("premium")) return "#7c3aed";
+  if(cat.toLowerCase().includes("normal")||cat.toLowerCase().includes("classic")) return "#6ea8fe";
+  return "#94a3b8";
+}
+
+/* load seat map from server (booked seats) */
+async function loadSeats(){
+  seatContainer.innerHTML = "Loading seats...";
+  try {
+    const res = await fetch(`${API_BASE}/seats/${encodeURIComponent(showId)}`);
+    let data = null;
+    try { data = await res.json(); } catch {}
+    if (!data || !Array.isArray(data.seats)) {
+      seatContainer.innerHTML = "<p class='muted'>Failed to load seat map.</p>";
+      return;
+    }
+    const seats = data.seats;
+    bookedSeats = data.booked || [];
+
+    seatContainer.innerHTML = "";
+    // generate per row using config.rows and seatsPerRow
+    seatConfig.rows.forEach(row => {
+      const rowDiv = document.createElement("div");
+      rowDiv.className = "row";
+      rowDiv.style.justifyContent = "center";
+      const category = seatConfig.rowToCategory[row] || "Normal";
+      for(let i=1;i<=seatConfig.seatsPerRow;i++){
+        const seatId = `${row}${i}`;
+        const d = document.createElement("div");
+        d.className = "seat";
+        d.textContent = seatId;
+
+        if (bookedSeats.includes(seatId)) {
+          d.classList.add("booked");
+        } else {
+          d.addEventListener("click", ()=> toggleSeat(d, seatId));
+        }
+
+        // set category color border
+        d.style.border = `2px solid ${categoryColor(category)}`;
+        rowDiv.appendChild(d);
+      }
+      // label row
+      const rowLabel = document.createElement("div");
+      rowLabel.style.margin = "0 .5rem";
+      rowLabel.style.color = "var(--muted)";
+      rowLabel.textContent = row;
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "flex";
+      wrapper.style.alignItems = "center";
+      wrapper.appendChild(rowLabel);
+      wrapper.appendChild(rowDiv);
+      seatContainer.appendChild(wrapper);
+    });
+
+  } catch(err){
+    console.error(err);
+    seatContainer.innerHTML = "<p class='muted'>Error loading seats.</p>";
+  }
+}
+
+/* toggle local selection */
+function toggleSeat(div, seat){
+  if (div.classList.contains("booked")) return;
+  if (selectedSeats.includes(seat)){
+    selectedSeats = selectedSeats.filter(s=>s!==seat);
+    div.classList.remove("selected");
+  } else {
+    selectedSeats.push(seat);
+    div.classList.add("selected");
+  }
+  msg.textContent = `${selectedSeats.length} seat(s) selected`;
+}
+
+/* listen for live bookings from server */
+socket.on("bookingCreated", data => {
+  // server emits { seat, show, time, user }
+  if (data.show !== showId) return;
+  // mark seat as booked
+  const seatDivs = document.querySelectorAll(".seat");
+  seatDivs.forEach(div=>{
+    if(div.textContent === data.seat){
+      div.classList.add("booked"); div.classList.remove("selected");
+      div.onclick = null;
+    }
+  });
+  // if user had it selected, remove it
+  if (selectedSeats.includes(data.seat)){
+    selectedSeats = selectedSeats.filter(s=>s!==data.seat);
+    msg.textContent = `${selectedSeats.length} seat(s) selected`;
+  }
+});
+
+/* proceed to summary (store selectedSeats with price mapping + checkout payload) */
+summaryBtn.addEventListener("click", async () => {
+  if (selectedSeats.length === 0) {
+    msg.textContent = "Select at least one seat";
+    return;
+  }
+
+  // Build raw seat list for backend booking
+  const payload = {
+    show: showId,
+    seats: selectedSeats
+  };
+
+  // Build priced seat list for UI summary
+  const seatPrices = selectedSeats.map(s => {
+    const row = s.replace(/[0-9]/g, "");
+    const cat = seatConfig.rowToCategory[row] || "Normal";
+    return { seat: s, category: cat, price: seatConfig.prices[cat] || 0 };
+  });
+
+  // Persist both payloads
+  localStorage.setItem("checkoutPayload", JSON.stringify(payload));
+  localStorage.setItem("selectedSeats", JSON.stringify(seatPrices));
+  localStorage.setItem("selectedDate", selectedDate);
+
+  // Go to summary where user confirms and backend booking is performed
+  window.location.href = "summary.html";
+});
+
+/* back / logout */
+document.getElementById("backBtn").onclick = ()=> history.back();
+document.getElementById("logoutBtn").onclick = ()=> { localStorage.clear(); location.href = "login.html"; };
+
+/* init */
+renderLegend();
+loadSeats();
+</script>
+
+<style>
+:root{--panel:#0f1318;--text:#f6f7f9;--muted:#c2c7d1;--primary:#6ea8fe}
+body{background:#0b0d10;color:var(--text);font-family:Inter,system-ui;margin:0}
+.nav-header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--panel)}
+.container{max-width:1000px;margin:2rem auto;padding:1rem}
+.row{display:flex;gap:.5rem;margin-bottom:.6rem;align-items:center}
+.seat{width:44px;height:44px;background:#0b1220;color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:.2rem}
+.seat.selected{background:linear-gradient(135deg,#6ea8fe,#a78bfa);color:#000}
+.seat.booked{background:#b91c1c;cursor:not-allowed}
+.btn-primary{background:var(--primary);border:none;color:#fff;padding:.6rem 1rem;border-radius:8px;cursor:pointer}
+.btn-secondary{background:none;border:1px solid rgba(255,255,255,.15);color:var(--text);padding:.4rem .7rem;border-radius:8px}
+.muted{color:var(--muted)}
+</style>
+<script src="script.js"></script>
+</body>
+</html>

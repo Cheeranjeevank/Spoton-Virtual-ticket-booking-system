@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SpotOn • Login / Signup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0b0d10;
+  --panel: #0f1318;
+  --text: #f6f7f9;
+  --muted: #c2c7d1;
+  --primary: #6ea8fe;
+  --accent: #a78bfa;
+  --border: #233043;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", sans-serif;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
+.auth-card {
+  background: var(--panel);
+  padding: 2rem;
+  border-radius: 20px;
+  width: min(400px, 90%);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease;
+}
+.auth-card:hover {
+  transform: translateY(-4px);
+}
+.tabs {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 1rem;
+}
+.tab {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-weight: 600;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab.active {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+form {
+  display: none;
+  flex-direction: column;
+  gap: 1rem;
+}
+form.active {
+  display: flex;
+}
+input {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  transition: border 0.2s ease;
+}
+input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+.btn {
+  background: var(--primary);
+  border: none;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.btn:hover {
+  background: var(--accent);
+}
+.message {
+  text-align: center;
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+  min-height: 18px;
+}
+.success { color: #4ade80; } /* green */
+.error { color: #f87171; }   /* red */
+</style>
+</head>
+<body>
+<div class="auth-card">
+  <h2 style="text-align:center;">🎟️ SpotOn</h2>
+
+  <div class="tabs">
+    <button class="tab active" data-form="login">Login</button>
+    <button class="tab" data-form="signup">Sign Up</button>
+  </div>
+
+  <!-- Login Form -->
+  <form id="loginForm" class="active">
+    <input type="email" id="loginEmail" placeholder="Email" required />
+    <input type="password" id="loginPassword" placeholder="Password" required minlength="6" />
+    <button type="submit" class="btn">Login</button>
+  </form>
+
+  <!-- Signup Form -->
+  <form id="signupForm">
+    <input type="text" id="signupName" placeholder="Full Name" required />
+    <input type="email" id="signupEmail" placeholder="Email" required />
+    <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" required minlength="6" />
+    <button type="submit" class="btn">Create Account</button>
+  </form>
+
+  <p id="message" class="message"></p>
+</div>
+
+<script>
+const API_BASE = "http://localhost:5503/api"; // backend base URL
+const messageBox = document.getElementById("message");
+const tabs = document.querySelectorAll(".tab");
+const forms = document.querySelectorAll("form");
+
+// -------- Toggle between Login & Signup --------
+tabs.forEach(tab => {
+  tab.addEventListener("click", () => {
+    tabs.forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    forms.forEach(f => f.classList.remove("active"));
+    document.getElementById(`${tab.dataset.form}Form`).classList.add("active");
+    messageBox.textContent = "";
+  });
+});
+
+// -------- Signup --------
+document.getElementById("signupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  messageBox.textContent = "Creating account...";
+  messageBox.className = "message";
+
+  const name = document.getElementById("signupName").value.trim();
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPassword").value.trim();
+
+  try {
+    const res = await fetch(`${API_BASE}/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.message || data.error || "Signup failed");
+
+    messageBox.textContent = data.message;
+    messageBox.classList.add("success");
+
+    // Switch to login tab
+    setTimeout(() => {
+      tabs[0].click(); // switch to login
+    }, 1000);
+  } catch (err) {
+    messageBox.textContent = err.message;
+    messageBox.classList.add("error");
+  }
+});
+
+// -------- Login --------
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  messageBox.textContent = "Logging in...";
+  messageBox.className = "message";
+
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value.trim();
+
+  try {
+    const res = await fetch(`${API_BASE}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.message || data.error || "Login failed");
+
+    // Save token & user
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    messageBox.textContent = "Login successful! Redirecting...";
+    messageBox.classList.add("success");
+
+    setTimeout(() => {
+      window.location.href = "venues.html";
+    }, 1000);
+  } catch (err) {
+    messageBox.textContent = err.message;
+    messageBox.classList.add("error");
+  }
+});
+</script>
+<script src="script.js"></script>
+</body>
+</html>
