@@ -1,25 +1,73 @@
-// Backend/models/Theatre.js
-import mongoose from "mongoose";
+// Backend/models/Theatre.js (PostgreSQL Version)
 
-const LayoutSchema = new mongoose.Schema({
-  rows: [String], // ["A","B",...]
-  rowToCategory: { type: Map, of: String }, // { A: "VIP", B: "VIP", ... }
-  seatsPerRow: Number,
-  prices: { type: Map, of: Number } // { VIP: 350, Premium: 220, Normal: 150 }
-}, { _id: false });
+import { DataTypes } from "sequelize";
+import sequelize from "../config/db.js";
 
-const ScreenSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  tags: [String], // e.g. ["IMAX","Dolby"]
-  timings: [String],
-  layout: LayoutSchema
-}, { _id: false });
+/* ====================== THEATRE ====================== */
+export const Theatre = sequelize.define("Theatre", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  venue: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  location: DataTypes.STRING,
+  image: DataTypes.STRING
+}, {
+  tableName: "theatres",
+  timestamps: false
+});
 
-const TheatreSchema = new mongoose.Schema({
-  venue: { type: String, required: true, unique: true },
-  location: String,
-  image: String,
-  screens: [ScreenSchema],
-}, { timestamps: true });
+/* ====================== SCREEN ====================== */
+export const Screen = sequelize.define("Screen", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  tags: {
+    type: DataTypes.ARRAY(DataTypes.STRING)
+  },
+  timings: {
+    type: DataTypes.ARRAY(DataTypes.STRING)
+  }
+}, {
+  tableName: "screens",
+  timestamps: false
+});
 
-export default mongoose.model("Theatre", TheatreSchema);
+/* ====================== SEAT CATEGORY ====================== */
+export const SeatCategory = sequelize.define("SeatCategory", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  row_name: {
+    type: DataTypes.STRING(5)
+  },
+  category: {
+    type: DataTypes.STRING
+  },
+  price: {
+    type: DataTypes.INTEGER
+  }
+}, {
+  tableName: "seat_categories",
+  timestamps: false
+});
+
+/* ====================== RELATIONSHIPS ====================== */
+Theatre.hasMany(Screen, { foreignKey: "theatre_id", onDelete: "CASCADE" });
+Screen.belongsTo(Theatre, { foreignKey: "theatre_id" });
+
+Screen.hasMany(SeatCategory, { foreignKey: "screen_id", onDelete: "CASCADE" });
+SeatCategory.belongsTo(Screen, { foreignKey: "screen_id" });

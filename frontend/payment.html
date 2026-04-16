@@ -4,67 +4,158 @@
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Payment • SpotOn</title>
 <link rel="stylesheet" href="style.css"/>
+<style>
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(96,165,250,.18), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(192,132,252,.18), transparent 45%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.payment-card {
+  backdrop-filter: blur(16px);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 500px;
+  margin: 3rem auto;
+  box-shadow:
+    0 0 25px rgba(96,165,250,.3),
+    0 0 60px rgba(192,132,252,.2);
+}
+
+.pay-btn {
+  background: linear-gradient(135deg, #6ea8fe, #a78bfa);
+  border: none;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  width: 100%;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(96,165,250,.3);
+}
+
+.pay-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(96,165,250,.5), 0 0 60px rgba(192,132,252,.3);
+}
+
+.pay-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+</style>
 </head>
 <body>
 <main class="container">
-  <h2>Payment</h2>
-  <div id="checkout"></div>
-  <div style="margin-top:1rem">
-    <button id="confirmPay" class="btn-primary">Pay (Mock)</button>
+  <div class="payment-card">
+    <h2>💳 Payment</h2>
+    <div id="checkout"></div>
+    <div style="margin-top:1rem">
+      <button id="confirmPay" class="pay-btn">Pay Now (Mock)</button>
+    </div>
+    <p id="msg" class="muted" style="text-align:center;margin-top:1rem"></p>
   </div>
-  <p id="msg" class="muted"></p>
 </main>
 
 <script>
-function getApiBase(){ const origin = window.location.origin;
-  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
-  if (origin.includes("localhost")) return "http://localhost:5503/api";
+function getApiBase() {
+  const origin = window.location.origin;
+  if (origin.includes(".devtunnels.ms")) return origin + "/api";
+  if (origin.includes("localhost") || origin.includes("127.0.0.1"))
+    return "http://localhost:5507/api";
   return origin + "/api";
 }
 const API_BASE = getApiBase();
-const payload = JSON.parse(localStorage.getItem("checkoutPayload") || "{}");
+
+/* Read from the correct localStorage keys */
+const movie = localStorage.getItem("selectedMovie") || "";
+const venue = JSON.parse(localStorage.getItem("selectedVenue") || "{}");
+const screen = localStorage.getItem("selectedScreen") || "";
+const time = localStorage.getItem("selectedTime") || "";
+const date = localStorage.getItem("selectedDate") || "";
+const seats = JSON.parse(localStorage.getItem("selectedSeats") || "[]");
 const msg = document.getElementById("msg");
-if(!payload || !payload.seats) location.href = "venues.html";
+
+if (!venue.name || !seats.length) location.href = "venues.html";
+
+/* Build show ID matching seatselection.html format */
+const showId = `${movie} | ${venue.name} | ${screen} | ${date} | ${time}`;
+
+/* Calculate total */
+let total = 0;
+seats.forEach(s => total += s.price);
+
 document.getElementById("checkout").innerHTML = `
-  <p><strong>${payload.venue}</strong> • ${payload.screen} • ${payload.time} • ${payload.date}</p>
-  <p>${payload.seats.map(s=>s.seat+" ("+s.category+")").join(", ")}</p>
-  <h3>Total: ₹${payload.total}</h3>
+  <p><strong>${venue.name}</strong> • ${screen} • ${time} • ${date}</p>
+  <p>${seats.map(s => s.seat + " (" + s.category + ")").join(", ")}</p>
+  <h3>Total: ₹${total}</h3>
 `;
 
-document.getElementById("confirmPay").onclick = async ()=>{
-  msg.textContent = "Processing payment (mock)...";
-  // simulate payment success
-  setTimeout(async ()=>{
-    // After "payment", call atomic booking endpoint
+document.getElementById("confirmPay").onclick = async () => {
+  const btn = document.getElementById("confirmPay");
+  btn.disabled = true;
+  msg.textContent = "Processing payment...";
+
+  setTimeout(async () => {
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API_BASE}/bookings/multi`, {
         method: "POST",
-        headers:{
-          "Content-Type":"application/json",
-          "Authorization":"Bearer " + token
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
         },
         body: JSON.stringify({
-          show: `${payload.venue} - ${payload.screen} - ${payload.time} - ${payload.date}`,
-          seats: payload.seats.map(s=>s.seat),
-          meta: { total: payload.total }
+          show: showId,
+          seats: seats.map(s => s.seat)
         })
       });
       const data = await res.json();
-      if (!res.ok){
+      if (!res.ok) {
         msg.textContent = data.message || "Booking failed";
+        btn.disabled = false;
         return;
       }
-      // store booking id for ticket generation
+
+      // Mark as paid
+      const bookingIds = data.booking.map(b => b.id);
+      await fetch(`${API_BASE}/payment/mock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ bookingIds })
+      });
+
       localStorage.setItem("lastBooking", JSON.stringify(data.booking));
-      window.location.href = "ticket.html";
-    } catch (err){
+      msg.textContent = "✅ Payment successful!";
+      setTimeout(() => window.location.href = "ticket.html", 800);
+    } catch (err) {
       console.error(err);
       msg.textContent = "Server error";
+      btn.disabled = false;
     }
   }, 800);
 };
 </script>
-<script src="script.js"></script>
+<script src="js/script.js"></script>
 </body>
 </html>

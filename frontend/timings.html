@@ -6,7 +6,8 @@
   <title>SpotOn — Select Time</title>
   <link rel="stylesheet" href="style.css"/>
 </head>
-<body>
+<body class="neon-page">
+
   <header class="nav-header">
     <a href="screens.html" class="logo-link"><h1 class="logo">🎟️ SpotOn</h1></a>
     <div>
@@ -22,95 +23,184 @@
   </main>
 
 <script>
-/* Auto API */
+/* Guards */
+const selectedMovie = localStorage.getItem("selectedMovie");
+const selectedVenue = localStorage.getItem("selectedVenue");
+const selectedScreen = localStorage.getItem("selectedScreen");
+
+if (!selectedMovie) location.href = "movies.html";
+if (!selectedVenue) location.href = "venues.html";
+if (!selectedScreen) location.href = "screens.html";
+
+/* Safe JSON parse */
+let venue;
+try {
+  venue = JSON.parse(selectedVenue);
+} catch (e) {
+  localStorage.removeItem("selectedVenue");
+  location.href = "venues.html";
+}
+
+/* API base */
 function getApiBase() {
   const origin = window.location.origin;
 
-  // DevTunnel — backend and frontend share same origin
-  if (origin.includes(".devtunnels.ms")) {
-    return origin + "/api";
-  }
+  if (origin.includes(".devtunnels.ms")) return origin + "/api";
+  if (origin.includes("localhost") || origin.includes("127.0.0.1"))
+    return "http://localhost:5507/api";
 
-  // Local development
-  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-    return "http://localhost:5503/api";
-  }
-
-  // Production / default
   return origin + "/api";
 }
 const API_BASE = getApiBase();
 
-/* Auth + selection */
+/* Auth */
 const token = localStorage.getItem("token");
 if (!token) location.href = "login.html";
-const selVenueStr = localStorage.getItem("selectedVenue");
-if (!selVenueStr) location.href = "venues.html";
-const venue = JSON.parse(selVenueStr);
-const selectedScreen = localStorage.getItem("selectedScreen");
-if (!selectedScreen) location.href = "screens.html";
 
 /* UI refs */
-document.getElementById("backBtn").addEventListener("click", ()=> location.href = "screens.html");
-document.getElementById("logoutBtn").addEventListener("click", ()=> {
-  localStorage.removeItem("token"); location.href = "login.html";
-});
-
 const title = document.getElementById("title");
 const container = document.getElementById("timingsContainer");
 const timeMsg = document.getElementById("timeMsg");
 
-/* Load timings for chosen screen from backend */
-async function loadTimings(){
-  title.textContent = `Select Time — ${venue.name} • ${selectedScreen}`;
-  timeMsg.textContent = "Loading times...";
+/* Navigation */
+document.getElementById("backBtn").onclick = () => location.href = "calendar.html";
+document.getElementById("logoutBtn").onclick = () => {
+  localStorage.clear();
+  location.href = "login.html";
+};
+
+/* Prevent double click */
+let isSelecting = false;
+
+/* Load timings */
+async function loadTimings() {
   try {
-    const res = await fetch(`${API_BASE}/showdata/${encodeURIComponent(venue.name)}`);
-    const data = await res.json();
-    const timings = data && data[selectedScreen] ? data[selectedScreen] : [];
+    const token = localStorage.getItem("token");
+    const venue = JSON.parse(localStorage.getItem("selectedVenue"));
+    const selectedScreen = localStorage.getItem("selectedScreen");
 
-    if (!timings.length) {
-      timeMsg.textContent = "No show timings available for this screen.";
-      return;
-    }
-
-    container.innerHTML = "";
-    timings.forEach(t => {
-      const slot = document.createElement("div");
-      slot.className = "time-slot";
-      slot.textContent = t;
-      slot.style.cursor = "pointer";
-      slot.addEventListener("click", ()=> selectTime(t));
-      container.appendChild(slot);
+    const res = await fetch(`${API_BASE}/showdata/${encodeURIComponent(venue.name)}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
     });
 
-    timeMsg.textContent = "";
+    const data = await res.json();
+
+    // 🔥 DEBUG LOGS (IMPORTANT)
+    console.log("API DATA:", data);
+    console.log("Selected Screen:", selectedScreen);
+
+    if (!data || typeof data !== "object" || data.message) {
+        timeMsg.textContent = data?.message || "No timings found.";
+        return;
+    }
+
+    const timings = Array.isArray(data?.[selectedScreen]) 
+      ? data[selectedScreen] 
+      : [];
+
+    const container = document.getElementById("timingsContainer");
+    container.innerHTML = "";
+
+    if (timings.length === 0) {
+        timeMsg.textContent = "No show timings available.";
+        return;
+    }
+
+    timings.forEach(time => {
+      const btn = document.createElement("button");
+      btn.textContent = time;
+      btn.onclick = () => selectTime(time);
+      btn.className = "time-slot";
+      container.appendChild(btn);
+    });
+
   } catch (err) {
-    timeMsg.textContent = "Failed to load timings.";
-    console.error(err);
+    console.error("Error loading timings:", err);
   }
 }
 
-/* choose time -> store selectedTime and go to seat selection */
+/* Select time */
 function selectTime(t){
+  if (isSelecting) return;
+  isSelecting = true;
+
   localStorage.setItem("selectedTime", t);
-  // Go to calendar for date selection instead of seat selection
-  location.href = "calendar.html";
+  location.href = "seatselection.html";
 }
 
 loadTimings();
 </script>
 
 <style>
-  :root{--panel:#0f1318;--text:#f6f7f9;--muted:#c2c7d1;--primary:#6ea8fe}
-  body{background:#0b0d10;color:var(--text);font-family:Inter,system-ui;margin:0}
-  .nav-header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--panel)}
-  .container{max-width:900px;margin:2rem auto;padding:1rem}
-  .time-grid{display:flex;flex-wrap:wrap;gap:.75rem}
-  .time-slot{background:var(--panel);padding:.6rem 1rem;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-  .btn-secondary{background:none;border:1px solid rgba(255,255,255,.08);color:var(--text);padding:.4rem .7rem;border-radius:8px}
-  .muted{color:var(--muted)}
+:root{--panel:#0f1318;--text:#f6f7f9;--muted:#c2c7d1}
+
+body{
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter,system-ui;
+  margin:0;
+  min-height:100vh;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(96,165,250,.18), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(192,132,252,.18), transparent 45%);
+  pointer-events:none;
+  z-index:-1;
+}
+
+.nav-header{
+  display:flex;
+  justify-content:space-between;
+  padding:1rem;
+  background:var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border-bottom:1px solid var(--glass-border);
+}
+
+.container{max-width:900px;margin:2rem auto;padding:1rem}
+.time-grid{display:flex;flex-wrap:wrap;gap:.75rem}
+
+.time-slot{
+  background: var(--glass-bg);
+  padding:.6rem 1rem;
+  border-radius:8px;
+  border:1px solid var(--glass-border);
+  cursor:pointer;
+  transition:.3s;
+}
+
+.time-slot:hover{
+  transform:translateY(-4px) scale(1.05);
+  box-shadow:
+    0 0 22px rgba(96,165,250,.45),
+    0 0 55px rgba(192,132,252,.35);
+}
+
+.time-slot.active{
+  border:1px solid #6ea8fe;
+  box-shadow:0 0 15px rgba(96,165,250,.6);
+}
+
+.btn-secondary{
+  background:none;
+  border:1px solid rgba(255,255,255,.08);
+  color:var(--text);
+  padding:.4rem .7rem;
+  border-radius:8px;
+}
+
+.muted{color:var(--muted)}
 </style>
-<script src="script.js"></script>
+
+<script src="js/script.js"></script>
+
+
 </body>
 </html>

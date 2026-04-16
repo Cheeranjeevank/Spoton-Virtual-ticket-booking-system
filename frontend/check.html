@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Ticket • SpotOn</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="neon-page">
+
+  <main class="container" style="max-width: 500px; margin-top: 4rem; text-align: center;">
+    <div id="checkCard" class="check-card" style="display: none;">
+      <div class="check-header">
+        <span class="logo">Spot<span>On.</span></span>
+        <div id="statusBadge" class="status-badge">Verified</div>
+      </div>
+
+      <div class="check-body">
+        <h1 id="movieTitle">Movie Name</h1>
+        <p id="venueDetails" class="muted">Venue • Screen</p>
+        
+        <div class="check-divider"></div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">Date</span>
+            <span id="showDate" class="val">—</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Time</span>
+            <span id="showTime" class="val">—</span>
+          </div>
+        </div>
+
+        <div class="check-divider"></div>
+
+        <div class="seats-box">
+          <span class="label">Booked Seats</span>
+          <div id="seatList" class="seats-val">—</div>
+        </div>
+
+        <p class="ticket-id" id="bookingId">ID: —</p>
+      </div>
+
+      <div class="check-footer">
+        <p class="muted">Official SpotOn VR Ticket</p>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error-box" style="display: none;">
+      <h2>⚠️ Invalid Ticket</h2>
+      <p class="muted">This ticket could not be verified. Please contact support.</p>
+      <a href="main.html" class="btn-primary" style="display: inline-block; margin-top: 1rem; text-decoration: none;">Back to Home</a>
+    </div>
+
+    <div id="loading" class="muted">Verifying ticket...</div>
+  </main>
+
+  <style>
+    .check-card {
+      background: var(--glass-bg);
+      backdrop-filter: var(--blur);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 0 50px rgba(96,165,250,0.2);
+      animation: slideDown 0.5s ease-out;
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .check-header {
+      padding: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .logo {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .logo span {
+      background: linear-gradient(135deg, #6ea8fe, #a78bfa);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-PAID { background: rgba(74,222,128,0.15); color: #4ade80; }
+    .status-USED { background: rgba(156,163,175,0.15); color: #9ca3af; }
+    .status-PENDING { background: rgba(251,191,36,0.15); color: #fbbf24; }
+
+    .check-body {
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin: 0 0 0.5rem;
+      background: linear-gradient(to right, #fff, #9ca3af);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .check-divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+      margin: 1.5rem 0;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .val {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .seats-box {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .seats-val {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #6ea8fe;
+      margin-top: 4px;
+    }
+
+    .ticket-id {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.2);
+      word-break: break-all;
+    }
+
+    .check-footer {
+      padding: 1rem;
+      background: rgba(0,0,0,0.2);
+      font-size: 0.8rem;
+    }
+
+    .error-box {
+      background: rgba(248,113,113,0.05);
+      border: 1px solid rgba(248,113,113,0.2);
+      padding: 2.5rem;
+      border-radius: 24px;
+    }
+    .error-box h2 { color: #f87171; margin-top: 0; }
+  </style>
+
+  <script>
+    function getApiBase() {
+      const origin = window.location.origin;
+      if (origin.includes("localhost") || origin.includes("127.0.0.1"))
+        return "http://localhost:5507/api";
+      return origin + "/api";
+    }
+    const API_BASE = getApiBase();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingId = urlParams.get('id');
+
+    async function verifyTicket() {
+      if (!bookingId) {
+        showError();
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/ticket/public/${bookingId}`);
+        if (!res.ok) throw new Error();
+
+        const data = await res.json();
+        showTicket(data);
+      } catch (err) {
+        showError();
+      }
+    }
+
+    function showTicket(data) {
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("checkCard").style.display = "block";
+      
+      document.getElementById("movieTitle").textContent = data.movie;
+      document.getElementById("venueDetails").textContent = `${data.venue} • ${data.screen}`;
+      document.getElementById("showDate").textContent = data.date;
+      document.getElementById("showTime").textContent = data.time;
+      document.getElementById("seatList").textContent = data.seats;
+      document.getElementById("bookingId").textContent = `ID: ${data.id}`;
+      
+      const badge = document.getElementById("statusBadge");
+      badge.textContent = data.status === 'PAID' ? 'Verified' : data.status;
+      badge.className = `status-badge status-${data.status}`;
+    }
+
+    function showError() {
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("errorBox").style.display = "block";
+    }
+
+    verifyTicket();
+  </script>
+</body>
+</html>

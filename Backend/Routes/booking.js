@@ -13,7 +13,7 @@ if (!token) {
 // Load seats dynamically from backend
 async function loadSeats() {
   try {
-    const res = await fetch(`http://localhost:5503/api/seats/${show}`, {
+    const res = await fetch(`http://localhost:5507/api/seats/${show}`, {
       headers: { "Authorization": "Bearer " + token }
     });
     const data = await res.json();
@@ -51,7 +51,7 @@ bookBtn.addEventListener("click", async () => {
   if(selectedSeats.length === 0) return alert("Select seats first!");
 
   try {
-    const res = await fetch("http://localhost:5503/api/booking", {
+    const res = await fetch("http://localhost:5507/api/booking", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",

@@ -1,48 +1,194 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Your Ticket • SpotOn</title>
 <link rel="stylesheet" href="style.css"/>
+<style>
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(96,165,250,.18), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(192,132,252,.18), transparent 45%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.ticket-card {
+  backdrop-filter: blur(16px);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 440px;
+  margin: 3rem auto;
+  text-align: center;
+  box-shadow:
+    0 0 30px rgba(96,165,250,.3),
+    0 0 70px rgba(192,132,252,.2);
+  animation: ticketFade .6s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Decorative neon border */
+.ticket-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    120deg,
+    transparent 20%,
+    rgba(96,165,250,.6),
+    rgba(192,132,252,.45),
+    transparent 80%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes ticketFade {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ticket-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.ticket-card h3 {
+  margin: 0.3rem 0;
+  font-size: 1.2rem;
+}
+
+.ticket-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 1rem 0;
+  position: relative;
+}
+
+/* Dashed ticket tear line */
+.ticket-divider::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 2px dashed rgba(255,255,255,0.15);
+}
+
+.ticket-card img {
+  max-width: 200px;
+  margin: 1rem auto;
+  display: block;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(96,165,250,.4);
+}
+
+.ticket-detail {
+  font-size: 0.9rem;
+  color: var(--muted, #9ca3af);
+  margin: 0.4rem 0;
+}
+
+.ticket-id {
+  font-size: 0.75rem;
+  color: var(--muted, #9ca3af);
+  word-break: break-all;
+  margin-top: 0.8rem;
+}
+
+.ticket-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+  justify-content: center;
+}
+
+.ticket-actions a {
+  padding: 10px 20px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.dash-btn {
+  background: linear-gradient(135deg, #6ea8fe, #a78bfa);
+  color: #fff;
+}
+
+.book-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text, #f6f7f9);
+}
+</style>
 </head>
 <body>
 <main class="container" style="text-align:center">
-  <h2>Your Ticket</h2>
   <div id="ticketBox"></div>
-  <a id="dashboardBtn" class="btn-primary" href="dashboard.html" style="display:inline-block;margin-top:1rem">Go to Dashboard</a>
 </main>
 
 <script>
-function getApiBase(){ 
+function getApiBase() {
   const origin = window.location.origin;
-  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
-  if (origin.includes("localhost")) return "http://localhost:5503/api";
+  if (origin.includes(".devtunnels.ms")) return origin + "/api";
+  if (origin.includes("localhost") || origin.includes("127.0.0.1"))
+    return "http://localhost:5507/api";
   return origin + "/api";
 }
 
 const API_BASE = getApiBase();
 const ticketBox = document.getElementById("ticketBox");
 
-// load booking array from summary confirmation
+// Load booking array from summary confirmation
 const bookingArr = JSON.parse(localStorage.getItem("lastBooking") || "[]");
 
 if (!Array.isArray(bookingArr) || bookingArr.length === 0) {
-  ticketBox.innerHTML = "<p class='muted'>No booking found.</p>";
+  ticketBox.innerHTML = `
+    <div class="ticket-card">
+      <h2>🎟️ SpotOn</h2>
+      <p class="muted">No booking found.</p>
+      <div class="ticket-actions">
+        <a class="dash-btn" href="dashboard.html">Dashboard</a>
+        <a class="book-btn" href="movies.html">Book Tickets</a>
+      </div>
+    </div>
+  `;
 } else {
   const first = bookingArr[0];
 
-  // extract show details
-  const showParts = first.show.split(" - ");
-  const venue = showParts[0] || "";
-  const screen = showParts[1] || "";
-  const time = showParts[2] || "";
+  // Extract show details (format: movie | venue | screen | date | time)
+  const showParts = first.show.split(" | ");
+  const movie = showParts[0] || "";
+  const venue = showParts[1] || "";
+  const screen = showParts[2] || "";
   const date = showParts[3] || "";
+  const time = showParts[4] || "";
 
-  // build seat list
+  // Build seat list
   const seatList = bookingArr.map(b => b.seat).join(", ");
 
-  // fetch QR code
-  fetch(`${API_BASE}/ticket/${first._id}`, {
+  // Fetch QR code (use 'id' for PostgreSQL/Sequelize)
+  fetch(`${API_BASE}/ticket/${first.id}`, {
     headers: { "Authorization": "Bearer " + localStorage.getItem("token") }
   })
   .then(r => r.json())
@@ -50,22 +196,53 @@ if (!Array.isArray(bookingArr) || bookingArr.length === 0) {
     const qr = data.qr || "";
 
     ticketBox.innerHTML = `
-      <div class="ticket-card" style="background:var(--panel);padding:1rem;border-radius:12px;max-width:420px;margin:0 auto;box-shadow:0 6px 18px rgba(0,0,0,.35)">
-        <h3 style="margin-bottom:.5rem">${venue}</h3>
-        <p><strong>${screen}</strong></p>
-        <p>${date} • ${time}</p>
-        <hr style="opacity:.2;margin:1rem 0"/>
-        <p><strong>Seats:</strong> ${seatList}</p>
-        <img src="${qr}" alt="QR Code" style="max-width:220px;margin:1rem auto;display:block"/>
-        <p style="font-size:.85rem;color:var(--muted)">Booking ID: ${first._id}</p>
+      <div class="ticket-card">
+        <h2>🎟️ SpotOn Ticket</h2>
+        <h3>${movie}</h3>
+        <p class="ticket-detail">${venue}</p>
+
+        <div class="ticket-divider"></div>
+
+        <p class="ticket-detail"><strong>${screen}</strong></p>
+        <p class="ticket-detail">📅 ${date} • 🕐 ${time}</p>
+
+        <div class="ticket-divider"></div>
+
+        <p><strong>Seats:</strong> ${data.seats || seatList}</p>
+
+        ${qr ? `<img src="${qr}" alt="QR Code"/>` : '<p class="muted">QR unavailable</p>'}
+
+        <p class="ticket-id">
+          Booking ID: ${first.id}
+        </p>
+
+        <div class="ticket-actions">
+          <a class="dash-btn" href="dashboard.html">Dashboard</a>
+          <a class="book-btn" href="movies.html">Book More</a>
+        </div>
       </div>
     `;
   })
   .catch(() => {
-    ticketBox.innerHTML = "<p class='muted'>Failed to load ticket.</p>";
+    // Still show ticket even without QR
+    ticketBox.innerHTML = `
+      <div class="ticket-card">
+        <h2>🎟️ SpotOn Ticket</h2>
+        <h3>${movie}</h3>
+        <p class="ticket-detail">${venue} • ${screen}</p>
+        <p class="ticket-detail">📅 ${date} • 🕐 ${time}</p>
+        <div class="ticket-divider"></div>
+        <p><strong>Seats:</strong> ${seatList}</p>
+        <p class="muted">QR code unavailable</p>
+        <p class="ticket-id">Booking ID: ${first.id}</p>
+        <div class="ticket-actions">
+          <a class="dash-btn" href="dashboard.html">Dashboard</a>
+          <a class="book-btn" href="movies.html">Book More</a>
+        </div>
+      </div>
+    `;
   });
 }
 </script>
-<script src="script.js"></script>
 </body>
 </html>

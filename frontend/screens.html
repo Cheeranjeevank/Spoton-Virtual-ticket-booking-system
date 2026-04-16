@@ -6,7 +6,7 @@
   <title>SpotOn — Select Screen</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="neon-page">
   <header class="nav-header">
     <a href="venues.html" class="logo-link"><h1 class="logo">🎟️ SpotOn</h1></a>
     <div>
@@ -35,7 +35,7 @@ function getApiBase() {
 
   // Localhost
   if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-    return "http://localhost:5503/api";
+    return "http://localhost:5507/api";
   }
 
   return origin + "/api";
@@ -59,41 +59,71 @@ document.getElementById("logoutBtn").addEventListener("click", ()=>{
   localStorage.removeItem("token"); localStorage.removeItem("selectedVenue");
   location.href = "login.html";
 });
+/* ---------- MOVIE CHECK ---------- */
+const selectedMovie = localStorage.getItem("selectedMovie");
+if (!selectedMovie) {
+  location.href = "movies.html";
+}
 
 /* Load screens from server showdata */
 async function loadScreens(){
   pageTitle.textContent = `Select Screen — ${venue.name}`;
   screensMsg.textContent = "Loading screens...";
+
   try {
     const res = await fetch(`${API_BASE}/showdata/${encodeURIComponent(venue.name)}`);
     const data = await res.json();
-    if (!data || Object.keys(data).length === 0) {
-      screensMsg.textContent = "No screens found for this venue.";
+
+    console.log("API DATA:", data); // ✅ correct place
+
+    if (!data || typeof data !== "object" || data.message) {
+      screensMsg.textContent = data?.message || "No screens found.";
       return;
     }
 
     container.innerHTML = "";
-    // data is { "Screen Name": [timings] }
+
     Object.keys(data).forEach(screen => {
       const timings = data[screen] || [];
+
       const card = document.createElement("div");
-      card.className = "screen-card";
+      card.className = "card screen-card";
+
       card.innerHTML = `
-        <h3>${screen}</h3>
-        <p class="muted">${timings.length} shows</p>
-        <div class="mini-seatmap">
-          <div class="mini-row">
-            <div class="mini-seat vip"></div><div class="mini-seat premium"></div><div class="mini-seat normal"></div>
-          </div>
-        </div>
-        <div style="margin-top:.7rem">
-          <button class="btn-primary" data-screen="${screen}">Select</button>
-        </div>
-      `;
+  <div class="screen-card-inner">
+
+    <div class="screen-header">
+      <h3>🎬 ${screen}</h3>
+      <span class="badge">${timings.length} Shows</span>
+    </div>
+
+    <div class="timings">
+      ${timings.map(t => `
+        <span class="time-chip">${t}</span>
+      `).join("")}
+    </div>
+
+    <div class="screen-divider"></div>
+
+    <div class="screen-footer">
+      <div class="screen-info">
+        <span>✨ Dolby Atmos</span>
+        <span>🍿 Available</span>
+      </div>
+
+      <button class="btn-primary select-btn" data-screen="${screen}">
+        Book Seats →
+      </button>
+    </div>
+
+  </div>
+`;
+
       container.appendChild(card);
     });
 
     screensMsg.textContent = "";
+
   } catch (err) {
     screensMsg.textContent = "Failed to load screens.";
     console.error(err);
@@ -104,11 +134,15 @@ async function loadScreens(){
 document.addEventListener("click", (e)=>{
   if (e.target.matches(".btn-primary") && e.target.dataset.screen) {
     const screen = e.target.dataset.screen;
+
     localStorage.setItem("selectedScreen", screen);
+    localStorage.removeItem("selectedDate");
     localStorage.removeItem("selectedTime");
-    location.href = "timings.html";
+
+    location.href = "calendar.html"; // ✅ CORRECT FLOW
   }
 });
+/* logout handler already registered above */
 
 loadScreens();
 
@@ -150,48 +184,5 @@ function renderSeatPreview() {
 renderSeatPreview();
 </script>
 
-<style>
-  :root{--panel:#0f1318;--text:#f6f7f9;--muted:#c2c7d1;--primary:#6ea8fe;--accent:#a78bfa}
-  body{background:#0b0d10;color:var(--text);font-family:Inter,system-ui;margin:0}
-  .nav-header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--panel)}
-  .container{max-width:1000px;margin:2rem auto;padding:1rem}
-  .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
-  .screen-card{background:var(--panel);padding:1rem;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-  .muted{color:var(--muted)}
-  .btn-primary{background:var(--primary);border:none;color:#fff;padding:.45rem .8rem;border-radius:8px;cursor:pointer}
-  .btn-secondary{background:none;border:1px solid rgba(255,255,255,.08);color:var(--text);padding:.4rem .7rem;border-radius:8px}
-  .seat-box {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    background: #2a2f3a;
-    border: 2px solid #6ea8fe;
-  }
-  .seat-row {
-    display: flex;
-    gap: .35rem;
-    justify-content: center;
-    margin-bottom: .4rem;
-  }
-  .seat-preview {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 1rem;
-  }
-  .seat-row {
-    display: flex;
-    gap: .35rem;
-    margin-bottom: .35rem;
-  }
-  .seat-box {
-    width: 28px;
-    height: 28px;
-    background: #2a2f3a;
-    border-radius: 6px;
-    border: 2px solid #6ea8fe;
-  }
-</style>
-<script src="script.js"></script>
 </body>
 </html>

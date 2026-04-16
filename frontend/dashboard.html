@@ -3,204 +3,794 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SpotOn Dashboard</title>
+  <title>Dashboard • SpotOn</title>
   <link rel="stylesheet" href="style.css" />
-
-  <style>
-    /* Toast notification styling */
-    .toast {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: var(--primary, #6ea8fe);
-      color: white;
-      padding: 12px 18px;
-      border-radius: 10px;
-      font-size: 0.95rem;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-      opacity: 0;
-      transform: translateY(-10px);
-      transition: all 0.4s ease;
-      z-index: 9999;
-    }
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
-<body class="dash-body">
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <a href="#" class="logo">Spot<span>On</span></a>
-    <nav>
-      <a href="#" class="active">Dashboard</a>
-      <a href="#">Bookings</a>
-      <a href="#">Profile</a>
-      <a href="#" id="logoutBtn">Logout</a>
-    </nav>
-  </aside>
+<body class="neon-page">
 
-  <!-- Main Content -->
-  <main class="dash-main">
-    <div class="dash-topbar">
-      <button id="sidebarToggle" class="icon-btn">☰</button>
-      <h2>Welcome to your Dashboard</h2>
-      <div class="grow"></div>
+  <!-- ========== HEADER (Same as Movies) ========== -->
+  <header class="db-header">
+    <div class="db-header-inner">
+      <a href="main.html" class="db-logo">Spot<span>On.</span></a>
 
-      <!-- 🌙☀️ Theme Button -->
-      <button id="dashThemeBtn" class="icon-btn theme" aria-label="Toggle Theme"
-              data-emoji-dark="🌙" data-emoji-light="☀️">🌙</button>
-      <img src="assets/user.png" alt="User Avatar" class="avatar" />
+      <nav class="db-nav">
+        <a href="movies.html" class="db-nav-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/>
+          </svg>
+          Movies
+        </a>
+        <a href="dashboard.html" class="db-nav-link active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/>
+            <rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>
+          </svg>
+          Dashboard
+        </a>
+        <a href="verify.html" class="db-nav-link" id="staffLink" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
+          </svg>
+          Staff Portal
+        </a>
+      </nav>
+
+      <div class="db-spacer"></div>
+
+      <button id="themeToggle" class="db-icon-btn" title="Toggle theme">🌙</button>
+      <button class="db-icon-btn db-logout-btn" id="logoutBtn" title="Logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+
+      <div class="db-user-badge" id="userBadge">
+        <div class="db-avatar" id="userAvatar">U</div>
+        <span id="userName">User</span>
+      </div>
     </div>
+  </header>
+
+  <!-- ========== DASHBOARD CONTENT ========== -->
+  <main class="db-main">
+
+    <!-- Welcome Banner -->
+    <section class="db-welcome">
+      <div>
+        <h1 id="greeting">Welcome back 👋</h1>
+        <p class="muted">Here's what's happening with your SpotOn account</p>
+      </div>
+      <a href="movies.html" class="db-book-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+        </svg>
+        Book Tickets
+      </a>
+    </section>
 
     <!-- KPI Cards -->
-    <section class="dash-cards">
-      <div class="kpi">
-        <div class="kpi-label">Total Bookings</div>
-        <div id="totalBookings" class="kpi-value">0</div>
-        <div class="kpi-trend up" id="trendText">Loading...</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Upcoming Shows</div>
-        <div id="upcomingShows" class="kpi-value">0</div>
-        <div class="kpi-trend">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Spent</div>
-        <div class="kpi-value">₹0</div>
-        <div class="kpi-trend">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Rewards</div>
-        <div class="kpi-value">0 pts</div>
-      </div>
-    </section>
-
-    <!-- Panels -->
-    <section class="dash-panels">
-      <div class="panel">
-        <div class="panel-head">
-          <h3>Recent Bookings</h3>
-          <button class="btn sm ghost" onclick="loadBookings()">🔄 Refresh</button>
+    <section class="db-kpis">
+      <div class="db-kpi">
+        <div class="db-kpi-icon" style="background:rgba(96,165,250,0.15);color:#6ea8fe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+          </svg>
         </div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr><th>#</th><th>Show</th><th>Date</th><th>Seat</th><th>Status</th></tr>
-            </thead>
-            <tbody id="bookingsBody">
-              <tr><td colspan="5">Loading bookings...</td></tr>
-            </tbody>
-          </table>
+        <div class="db-kpi-data">
+          <span class="db-kpi-value" id="totalBookings">0</span>
+          <span class="db-kpi-label">Total Bookings</span>
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-head">
-          <h3>Performance</h3>
+      <div class="db-kpi">
+        <div class="db-kpi-icon" style="background:rgba(192,132,252,0.15);color:#c084fc">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
         </div>
-        <canvas id="salesChart" height="220"></canvas>
+        <div class="db-kpi-data">
+          <span class="db-kpi-value" id="upcomingShows">0</span>
+          <span class="db-kpi-label">Upcoming Shows</span>
+        </div>
+      </div>
+
+      <div class="db-kpi">
+        <div class="db-kpi-icon" style="background:rgba(74,222,128,0.15);color:#4ade80">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <div class="db-kpi-data">
+          <span class="db-kpi-value" id="totalSpent">₹0</span>
+          <span class="db-kpi-label">Total Spent</span>
+        </div>
+      </div>
+
+      <div class="db-kpi">
+        <div class="db-kpi-icon" style="background:rgba(251,191,36,0.15);color:#fbbf24">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </div>
+        <div class="db-kpi-data">
+          <span class="db-kpi-value">0 pts</span>
+          <span class="db-kpi-label">Rewards</span>
+        </div>
       </div>
     </section>
+
+    <!-- Tabs: Bookings / Profile -->
+    <div class="db-tab-bar">
+      <button class="db-tab active" data-panel="bookings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+        </svg>
+        My Bookings
+      </button>
+      <button class="db-tab" data-panel="profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>
+        </svg>
+        Profile
+      </button>
+    </div>
+
+    <!-- Panel: Bookings -->
+    <section class="db-panel" id="panel-bookings">
+      <div class="db-panel-head">
+        <h3>Recent Bookings</h3>
+        <button class="db-refresh-btn" id="refreshBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3"/><path d="M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      <div class="db-table-wrap">
+        <table class="db-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Movie</th>
+              <th>Venue</th>
+              <th>Date</th>
+              <th>Seat</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="bookingsBody">
+            <tr><td colspan="6" class="db-empty">Loading bookings...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="emptyState" style="display:none" class="db-empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="color:var(--muted)">
+          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+          <path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>
+        </svg>
+        <p>No bookings yet</p>
+        <a href="movies.html" class="db-cta-btn">Browse Movies</a>
+      </div>
+    </section>
+
+    <!-- Panel: Profile -->
+    <section class="db-panel" id="panel-profile" style="display:none">
+      <div class="db-panel-head">
+        <h3>Your Profile</h3>
+      </div>
+      <div class="db-profile-card">
+        <div class="db-profile-avatar" id="profileAvatar">U</div>
+        <div class="db-profile-details">
+          <div class="db-profile-row">
+            <span class="db-profile-label">Name</span>
+            <span class="db-profile-value" id="profileName">—</span>
+          </div>
+          <div class="db-profile-row">
+            <span class="db-profile-label">Email</span>
+            <span class="db-profile-value" id="profileEmail">—</span>
+          </div>
+          <div class="db-profile-row">
+            <span class="db-profile-label">Member Since</span>
+            <span class="db-profile-value">2026</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
-  <!-- Toast container -->
-  <div id="toast" class="toast"></div>
+  <!-- Toast -->
+  <div id="toast" class="db-toast"></div>
 
-  <!-- Socket.IO + main scripts -->
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="script.js"></script>
+<style>
+/* ====================================================
+   SPOTON DASHBOARD — PREMIUM NEON GLASS
+   ==================================================== */
+* { font-family: 'Inter', sans-serif; }
 
-  <script>
-    // Redirect if not logged in
-    if (!localStorage.getItem("token")) {
-      window.location.href = "login.html";
+.neon-page {
+  background:
+    radial-gradient(circle at 20% 30%, rgba(96,165,250,.15), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(192,132,252,.15), transparent 45%),
+    var(--bg);
+  min-height: 100vh;
+}
+
+/* ---------- HEADER ---------- */
+.db-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(15,15,30,0.85);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.db-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.db-logo {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.5px;
+  margin-right: 1rem;
+}
+.db-logo span {
+  background: linear-gradient(135deg, #6ea8fe, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.db-nav {
+  display: flex;
+  gap: 4px;
+}
+.db-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.db-nav-link:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.db-nav-link.active {
+  background: rgba(96,165,250,0.12);
+  color: #6ea8fe;
+}
+
+.db-spacer { flex: 1; }
+
+.db-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+.db-icon-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(96,165,250,0.3);
+}
+.db-logout-btn:hover {
+  border-color: rgba(248,113,113,0.4);
+  color: #f87171;
+}
+
+.db-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 4px 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.db-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6ea8fe, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #fff;
+}
+
+/* ---------- MAIN ---------- */
+.db-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 3rem;
+}
+
+/* Welcome Banner */
+.db-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.db-welcome h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem;
+}
+.db-book-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6ea8fe, #7c3aed);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(96,165,250,0.3);
+}
+.db-book-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(96,165,250,0.5), 0 0 60px rgba(192,132,252,0.3);
+}
+
+/* ---------- KPI CARDS ---------- */
+.db-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.db-kpi {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+}
+.db-kpi:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 20px rgba(96,165,250,0.25),
+    0 0 50px rgba(192,132,252,0.15);
+}
+.db-kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.db-kpi-data {
+  display: flex;
+  flex-direction: column;
+}
+.db-kpi-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.db-kpi-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ---------- TAB BAR ---------- */
+.db-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1rem;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  width: fit-content;
+}
+.db-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.db-tab:hover { color: var(--text); }
+.db-tab.active {
+  background: rgba(96,165,250,0.15);
+  color: #6ea8fe;
+}
+
+/* ---------- PANELS ---------- */
+.db-panel {
+  border-radius: 18px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+.db-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.db-panel-head h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+.db-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.db-refresh-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+}
+
+/* Table */
+.db-table-wrap {
+  overflow-x: auto;
+}
+.db-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.db-table th {
+  text-align: left;
+  padding: 0.8rem 1.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255,255,255,0.02);
+}
+.db-table td {
+  padding: 0.9rem 1.2rem;
+  font-size: 0.88rem;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  color: var(--text);
+}
+.db-table tr:hover td {
+  background: rgba(255,255,255,0.03);
+}
+
+.db-empty {
+  text-align: center;
+  padding: 2rem !important;
+  color: var(--muted);
+}
+
+/* Status badges */
+.db-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.db-badge-success {
+  background: rgba(74,222,128,0.15);
+  color: #4ade80;
+}
+.db-badge-pending {
+  background: rgba(251,191,36,0.15);
+  color: #fbbf24;
+}
+
+/* Empty state */
+.db-empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+.db-empty-state p {
+  margin: 1rem 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.db-cta-btn {
+  display: inline-block;
+  padding: 10px 24px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6ea8fe, #7c3aed);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.88rem;
+  transition: all 0.3s ease;
+}
+.db-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(96,165,250,0.4);
+}
+
+/* ---------- PROFILE ---------- */
+.db-profile-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+  padding: 2rem;
+}
+.db-profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #6ea8fe, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.8rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+.db-profile-details {
+  flex: 1;
+}
+.db-profile-row {
+  display: flex;
+  align-items: center;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.db-profile-row:last-child { border-bottom: none; }
+.db-profile-label {
+  width: 140px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.db-profile-value {
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+/* ---------- TOAST ---------- */
+.db-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: rgba(15,15,30,0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(96,165,250,0.3);
+  color: var(--text);
+  font-size: 0.88rem;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.4s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.db-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 900px) {
+  .db-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .db-header-inner { padding: 0.6rem 1rem; gap: 0.5rem; }
+  .db-main { padding: 1rem; }
+  .db-kpis { grid-template-columns: 1fr; }
+  .db-nav-link span { display: none; }
+  .db-profile-card { flex-direction: column; align-items: center; text-align: center; }
+  .db-profile-row { flex-direction: column; gap: 4px; align-items: flex-start; }
+  #userName { display: none; }
+}
+</style>
+
+<!-- ========== SCRIPTS ========== -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="js/script.js"></script>
+<script>
+// Auth guard
+if (!localStorage.getItem("token")) {
+  window.location.href = "login.html";
+}
+
+const token = localStorage.getItem("token");
+
+// Dynamic API base
+function getApiBase() {
+  const origin = window.location.origin;
+  if (origin.includes(".devtunnels.ms")) return origin + "/api";
+  if (origin.includes("localhost") || origin.includes("127.0.0.1"))
+    return "http://localhost:5507/api";
+  return origin + "/api";
+}
+const DASH_API = getApiBase();
+
+// --- Populate user info ---
+try {
+  const payload = JSON.parse(atob(token.split('.')[1]));
+  const name = payload.name || payload.email || "User";
+  document.getElementById("userName").textContent = name;
+  document.getElementById("userAvatar").textContent = name.charAt(0).toUpperCase();
+  document.getElementById("profileAvatar").textContent = name.charAt(0).toUpperCase();
+  document.getElementById("profileName").textContent = name;
+  document.getElementById("profileEmail").textContent = payload.email || "—";
+  document.getElementById("greeting").textContent = `Welcome back, ${name.split(' ')[0]} 👋`;
+
+  // Show Staff Portal for staff/admin
+  if (['staff', 'admin'].includes(payload.role)) {
+    document.getElementById("staffLink").style.display = "flex";
+  }
+} catch(e) {}
+
+// --- Tab switching ---
+document.querySelectorAll('.db-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.db-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    const target = tab.dataset.panel;
+    document.getElementById('panel-bookings').style.display = target === 'bookings' ? '' : 'none';
+    document.getElementById('panel-profile').style.display = target === 'profile' ? '' : 'none';
+  });
+});
+
+// Handle URL hash for direct navigation
+if (window.location.hash === '#profile') {
+  document.querySelector('[data-panel="profile"]').click();
+} else if (window.location.hash === '#bookings') {
+  document.querySelector('[data-panel="bookings"]').click();
+}
+
+// --- Fetch Bookings ---
+async function loadBookings() {
+  try {
+    const res = await fetch(`${DASH_API}/bookings`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    const data = await res.json();
+    const tbody = document.getElementById("bookingsBody");
+    const totalEl = document.getElementById("totalBookings");
+    const upcomingEl = document.getElementById("upcomingShows");
+    const emptyState = document.getElementById("emptyState");
+
+    tbody.innerHTML = "";
+
+    if (!res.ok) {
+      tbody.innerHTML = `<tr><td colspan="6" class="db-empty">❌ ${data.message || "Failed"}</td></tr>`;
+      return;
     }
 
-    const token = localStorage.getItem("token");
-
-    // ---- Fetch and Render Bookings ----
-    async function loadBookings() {
-      try {
-        const res = await fetch("/api/bookings", {
-          headers: { Authorization: "Bearer " + token }
-        });
-        const data = await res.json();
-        const tbody = document.getElementById("bookingsBody");
-        const totalEl = document.getElementById("totalBookings");
-        const upcomingEl = document.getElementById("upcomingShows");
-        const trendEl = document.getElementById("trendText");
-
-        tbody.innerHTML = "";
-
-        if (!res.ok) {
-          tbody.innerHTML = `<tr><td colspan="5">❌ ${data.message || "Failed to load bookings"}</td></tr>`;
-          return;
-        }
-
-        if (data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5">No bookings yet.</td></tr>`;
-          totalEl.textContent = "0";
-          trendEl.textContent = "No activity";
-          return;
-        }
-
-        // Update KPI stats
-        totalEl.textContent = data.length;
-        upcomingEl.textContent = Math.min(data.length, 3);
-        trendEl.textContent = "+ Active user";
-
-        // Render table rows
-        data.forEach((b, i) => {
-          const tr = document.createElement("tr");
-          const date = new Date(b.time).toLocaleDateString();
-          tr.innerHTML = `
-            <td>${i + 1}</td>
-            <td>${b.show}</td>
-            <td>${date}</td>
-            <td>${b.seat}</td>
-            <td><span class="badge success">Confirmed</span></td>
-          `;
-          tbody.appendChild(tr);
-        });
-      } catch (err) {
-        console.error("Error loading bookings:", err);
-        document.getElementById("bookingsBody").innerHTML =
-          `<tr><td colspan="5">❌ Server unreachable</td></tr>`;
-      }
+    if (data.length === 0) {
+      tbody.parentElement.parentElement.style.display = "none"; // hide table
+      emptyState.style.display = "block";
+      totalEl.textContent = "0";
+      return;
     }
 
-    // ---- Realtime updates via Socket.IO ----
-    const socket = io("http://localhost:5503"); // match backend port
+    emptyState.style.display = "none";
+    totalEl.textContent = data.length;
+    upcomingEl.textContent = Math.min(data.length, 3);
 
-    socket.on("connect", () => {
-      console.log("✅ Connected to Socket.IO server");
+    data.forEach((b, i) => {
+      const showParts = b.show.split(" | ");
+      const movie = showParts[0] || b.show;
+      const venue = showParts[1] || "—";
+      const date = showParts[3] || new Date(b.time).toLocaleDateString();
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td><strong>${movie}</strong></td>
+        <td>${venue}</td>
+        <td>${date}</td>
+        <td>${b.seat}</td>
+        <td><span class="db-badge db-badge-success">Confirmed</span></td>
+      `;
+      tbody.appendChild(tr);
     });
 
-    socket.on("bookingCreated", (booking) => {
-      console.log("🎟️ New booking received:", booking);
-      showToast(`🎟️ New booking confirmed — Seat ${booking.seat} for ${booking.show}`);
-      loadBookings(); // instantly refresh
-    });
+  } catch (err) {
+    console.error("Error loading bookings:", err);
+    document.getElementById("bookingsBody").innerHTML =
+      `<tr><td colspan="6" class="db-empty">❌ Server unreachable</td></tr>`;
+  }
+}
 
-    // Toast popup handler
-    function showToast(message) {
-      const toast = document.getElementById("toast");
-      toast.textContent = message;
-      toast.classList.add("show");
-      setTimeout(() => toast.classList.remove("show"), 3000);
-    }
+// Refresh
+document.getElementById("refreshBtn").addEventListener("click", loadBookings);
 
-    // Initial load
-    loadBookings();
+// --- Socket.IO realtime ---
+const socket = io(DASH_API.replace("/api", ""));
 
-    // ---- Logout ----
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      localStorage.removeItem("token");
-      window.location.href = "login.html";
-    });
-  </script>
-  <script src="script.js"></script>
+socket.on("connect", () => console.log("✅ Socket connected"));
+socket.on("bookingCreated", (booking) => {
+  showToast(`🎟️ Booking confirmed — Seat ${booking.seat}`);
+  loadBookings();
+});
+
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 3500);
+}
+
+// --- Theme ---
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const isLight = document.documentElement.classList.toggle("light");
+  localStorage.setItem("spoton-theme", isLight ? "light" : "dark");
+  document.getElementById("themeToggle").textContent = isLight ? "☀️" : "🌙";
+});
+(function() {
+  if (localStorage.getItem("spoton-theme") === "light") {
+    document.documentElement.classList.add("light");
+    document.getElementById("themeToggle").textContent = "☀️";
+  }
+})();
+
+// --- Logout ---
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  localStorage.clear();
+  location.href = "login.html";
+});
+
+// Initial load
+loadBookings();
+</script>
 </body>
 </html>

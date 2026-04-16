@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ticket Verification • SpotOn</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="container" style="max-width:420px">
+  <h2>Verify Ticket</h2>
+
+  <input id="bookingId" placeholder="Enter Booking ID" class="input" />
+  <button class="btn-primary" onclick="verify()">Verify</button>
+
+  <p id="result" class="muted" style="margin-top:1rem"></p>
+</main>
+
+<script>
+function getApiBase(){
+  const o = location.origin;
+  if (o.includes(".devtunnels.ms")) return o + "/api";
+  if (o.includes("localhost")) return "http://localhost:5507/api";
+  return o + "/api";
+}
+
+const API = getApiBase();
+
+async function verify(){
+  const id = document.getElementById("bookingId").value.trim();
+  const result = document.getElementById("result");
+
+  if (!id) return result.textContent = "Enter booking ID";
+
+  const res = await fetch(`${API}/ticket/verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + localStorage.getItem("token")
+    },
+    body: JSON.stringify({ bookingId: id })
+  });
+
+  const data = await res.json();
+
+  result.textContent = res.ok ? "✅ VALID TICKET" : "❌ " + data.message;
+}
+</script>
+<script src="script.js"></script>
+</body>
+</html>

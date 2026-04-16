@@ -4,12 +4,172 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>SpotOn — Seat Selection</title>
+
 <link rel="stylesheet" href="style.css"/>
+
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script>
+  function _getSocketBase() {
+    const o = window.location.origin;
+    if (o.includes(".devtunnels.ms")) return o;
+    if (o.includes("localhost") || o.includes("127.0.0.1")) return "http://localhost:5507";
+    return o;
+  }
+  const socket = io(_getSocketBase());
+</script>
+
+<style>
+:root {
+  --panel: #0f1318;
+  --text: #f6f7f9;
+  --muted: #c2c7d1;
+  --primary: #6ea8fe;
+}
+
+body.neon-page {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui;
+  margin: 0;
+  position: relative;
+  overflow-x: hidden;
+}
+
+
+.nav-header,
+.container,
+.seat,
+.btn-primary,
+.btn-secondary {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 0 8px var(--primary),
+    0 0 15px var(--secondary);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.seat {
+  width: 44px;
+  height: 44px;
+  color: #fff;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1.5px solid var(--primary);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, color 0.3s ease, background 0.3s ease;
+  background: rgba(255,255,255,0.08);
+  min-width: 44px;
+  user-select: none;
+  position: relative;
+}
+.seatContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.seat:hover:not(.booked):not(.selected) {
+  box-shadow:
+    0 0 8px var(--primary),
+    0 0 15px var(--primary),
+    0 0 20px var(--secondary);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.seat.selected {
+  background: linear-gradient(135deg, #6ea8fe, #a78bfa);
+  color: #000;
+  box-shadow:
+    0 0 12px #6ea8fe,
+    0 0 25px #a78bfa;
+  border-color: #a78bfa;
+}
+
+.seat.booked {
+  background: #b91c1c;
+  cursor: not-allowed;
+  border-color: #7f1d1d;
+  box-shadow: none;
+  color: #fff;
+}
+
+.btn-primary {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text);
+  box-shadow:
+    0 0 8px var(--primary),
+    0 0 15px var(--secondary);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: var(--glass-bg);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text);
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow:
+    0 0 6px var(--primary),
+    0 0 12px var(--secondary);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-secondary:hover {
+  box-shadow:
+    0 0 10px var(--primary),
+    0 0 20px var(--secondary);
+}
+
+.muted {
+  color: var(--muted);
+}
+</style>
 </head>
-<body>
+
+<body class="neon-page">
+
+
 <header class="nav-header">
-  <a href="timings.html" class="logo-link"><h1 class="logo">🎟️ SpotOn</h1></a>
+  <a href="timings.html" class="logo-link"><h1>🎟️ SpotOn</h1></a>
   <div>
     <button id="backBtn" class="btn-secondary">Back</button>
     <button id="logoutBtn" class="btn-secondary">Logout</button>
@@ -17,225 +177,430 @@
 </header>
 
 <main class="container">
-  <h2 id="showTitle" class="page-title">Select Your Seats</h2>
+  <h2 id="showTitle">Select Your Seats</h2>
 
-  <div id="legend" style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem"></div>
+  <div id="legend" style="display:flex;gap:1rem;margin-bottom:1rem"></div>
+  <div id="seatContainer"></div>
 
-  <div id="seatContainer" style="display:flex;flex-direction:column;gap:.5rem"></div>
-
-  <div style="display:flex;gap:.75rem;align-items:center;margin-top:1rem">
-    <button id="summaryBtn" class="btn-primary">Proceed to Summary</button>
-    <p id="msg" class="muted" style="margin:0"></p>
+  <div style="margin-top:1rem;display:flex;gap:1rem;align-items:center">
+    <button id="summaryBtn" class="btn-primary" disabled>Proceed to Summary</button>
+    <p id="msg" class="muted"></p>
   </div>
 </main>
 
 <script>
-/* ---------- CONFIG (edit here) ---------- */
+/* ================= STRICT FLOW GUARDS ================= */
+const movie = localStorage.getItem("selectedMovie");
+const venueStr = localStorage.getItem("selectedVenue");
+const screen = localStorage.getItem("selectedScreen");
+const date = localStorage.getItem("selectedDate");
+const time = localStorage.getItem("selectedTime");
+
+if (!movie) location.href = "movies.html";
+else if (!venueStr) location.href = "venues.html";
+else if (!screen) location.href = "screens.html";
+else if (!date) location.href = "calendar.html";
+else if (!time) location.href = "timings.html";
+
+/* ================= CONFIG ================= */
 const seatConfig = {
-  rows: ["A","B","C","D","E"],      // change rows
-  rowToCategory: {                 // assign row -> category
-    A: "VIP", B: "VIP",
-    C: "Premium",
-    D: "Normal", E: "Normal"
+  rows:["A","B","C","D","E"],
+  seatsPerRow:8,
+  rowToCategory:{
+    A:"VIP", B:"VIP",
+    C:"Premium",
+    D:"Normal", E:"Normal"
   },
-  prices: {                        // price per category
-    VIP: 350,
-    Premium: 220,
-    Normal: 150
+  prices:{
+    VIP:350,
+    Premium:220,
+    Normal:150
   },
-  legendOrder: ["VIP","Premium","Normal"],
-  seatsPerRow: 8                   // seats per row (A1..A8 etc)
+  legendOrder:["VIP","Premium","Normal"],
+  maxSeats:6
 };
-/* AUTO API */
+
+/* ================= API ================= */
 function getApiBase(){
-  const origin = window.location.origin;
-  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
-  if (origin.includes("localhost") || origin.includes("127.0.0.1")) return "http://localhost:5503/api";
-  return origin + "/api";
+  const o = window.location.origin;
+
+  if(o.includes("localhost") || o.includes("127.0.0.1")) {
+    return "http://localhost:5507/api";
+  }
+
+  // fallback (important fix)
+  return o + "/api";
 }
 const API_BASE = getApiBase();
-
-/* SOCKET */
-const socket = io(API_BASE.replace("/api",""), { transports:["websocket"] });
-
-/* AUTH + STATE */
-const token = localStorage.getItem("token");
-if (!token) location.href = "login.html";
-const venueObj = JSON.parse(localStorage.getItem("selectedVenue") || "null");
-if (!venueObj) location.href = "venues.html";
-const selectedScreen = localStorage.getItem("selectedScreen"); if (!selectedScreen) location.href = "screens.html";
-const selectedTime = localStorage.getItem("selectedTime"); if (!selectedTime) location.href = "timings.html";
-const selectedDate = localStorage.getItem("selectedDate") || new Date().toISOString().split("T")[0];
-
-/* show id includes date */
-const showId = `${venueObj.name} - ${selectedScreen} - ${selectedTime} - ${selectedDate}`;
-document.getElementById("showTitle").textContent = `${venueObj.name} • ${selectedScreen} • ${selectedTime} • ${selectedDate}`;
-
-/* UI */
-const legendEl = document.getElementById("legend");
-const seatContainer = document.getElementById("seatContainer");
-const msg = document.getElementById("msg");
-const summaryBtn = document.getElementById("summaryBtn");
-
-let bookedSeats = [];     // currently booked (from server + live updates)
-let selectedSeats = [];   // seats user selected
-
-/* draw legend */
-function renderLegend(){
-  legendEl.innerHTML = "";
-  seatConfig.legendOrder.forEach(cat => {
-    const el = document.createElement("div");
-    el.innerHTML = `<div style="width:18px;height:18px;border-radius:4px;display:inline-block;margin-right:.5rem;background:${categoryColor(cat)}"></div> ${cat} — ₹${seatConfig.prices[cat]||0}`;
-    legendEl.appendChild(el);
+if (!API_BASE) {
+  console.warn("API_BASE not resolved, using same-origin /api");
+}
+if (typeof socket !== "undefined") {
+  socket.on("connect", () => {
+    console.log("Socket connected");
   });
 }
+
+/* ================= AUTH ================= */
+const token = localStorage.getItem("token");
+if(!token) location.href="login.html";
+
+/* ================= STATE ================= */
+const venue = JSON.parse(venueStr || "null");
+
+if(!venue || !screen || !time) location.href="venues.html";
+
+const showId = `${movie} | ${venue.name} | ${screen} | ${date} | ${time}`;
+document.getElementById("showTitle").textContent =
+`${venue.name} • ${screen} • ${time} • ${date}`;
+
+let bookedSeats=[];
+let selectedSeats=[];
+
+/* ================= HELPERS ================= */
 function categoryColor(cat){
-  // deterministic color pick
-  if(cat.toLowerCase().includes("vip")) return "#f59e0b";
-  if(cat.toLowerCase().includes("premium")) return "#7c3aed";
-  if(cat.toLowerCase().includes("normal")||cat.toLowerCase().includes("classic")) return "#6ea8fe";
-  return "#94a3b8";
+  if(cat==="VIP") return "#f59e0b";
+  if(cat==="Premium") return "#7c3aed";
+  return "#6ea8fe";
 }
 
-/* load seat map from server (booked seats) */
+function updateSummary(){
+  const total = selectedSeats.reduce((sum,s)=>{
+    const row = s.replace(/[0-9]/g,"");
+    const cat = seatConfig.rowToCategory[row];
+    return sum + seatConfig.prices[cat];
+  },0);
+
+  document.getElementById("msg").textContent =
+    `${selectedSeats.length} seat(s) • ₹${total}`;
+
+  const btn = document.getElementById("summaryBtn");
+  btn.disabled = selectedSeats.length===0;
+  btn.style.opacity = btn.disabled ? 0.5 : 1;
+}
+
+/* ================= LEGEND ================= */
+function renderLegend(){
+  const l = document.getElementById("legend");
+  l.innerHTML="";
+  seatConfig.legendOrder.forEach(c=>{
+    const d=document.createElement("div");
+    d.innerHTML=`<span style="display:inline-block;width:16px;height:16px;background:${categoryColor(c)};border-radius:4px"></span> ${c} ₹${seatConfig.prices[c]}`;
+    l.appendChild(d);
+  });
+}
+
+/* ================= LOAD SEATS ================= */
 async function loadSeats(){
-  seatContainer.innerHTML = "Loading seats...";
+  const c = document.getElementById("seatContainer");
+  c.innerHTML="Loading seats...";
+  let data = {};
   try {
-    const res = await fetch(`${API_BASE}/seats/${encodeURIComponent(showId)}`);
-    let data = null;
-    try { data = await res.json(); } catch {}
-    if (!data || !Array.isArray(data.seats)) {
-      seatContainer.innerHTML = "<p class='muted'>Failed to load seat map.</p>";
-      return;
-    }
-    const seats = data.seats;
-    bookedSeats = data.booked || [];
-
-    seatContainer.innerHTML = "";
-    // generate per row using config.rows and seatsPerRow
-    seatConfig.rows.forEach(row => {
-      const rowDiv = document.createElement("div");
-      rowDiv.className = "row";
-      rowDiv.style.justifyContent = "center";
-      const category = seatConfig.rowToCategory[row] || "Normal";
-      for(let i=1;i<=seatConfig.seatsPerRow;i++){
-        const seatId = `${row}${i}`;
-        const d = document.createElement("div");
-        d.className = "seat";
-        d.textContent = seatId;
-
-        if (bookedSeats.includes(seatId)) {
-          d.classList.add("booked");
-        } else {
-          d.addEventListener("click", ()=> toggleSeat(d, seatId));
-        }
-
-        // set category color border
-        d.style.border = `2px solid ${categoryColor(category)}`;
-        rowDiv.appendChild(d);
-      }
-      // label row
-      const rowLabel = document.createElement("div");
-      rowLabel.style.margin = "0 .5rem";
-      rowLabel.style.color = "var(--muted)";
-      rowLabel.textContent = row;
-      const wrapper = document.createElement("div");
-      wrapper.style.display = "flex";
-      wrapper.style.alignItems = "center";
-      wrapper.appendChild(rowLabel);
-      wrapper.appendChild(rowDiv);
-      seatContainer.appendChild(wrapper);
+    const res = await fetch(`${API_BASE}/seats/${encodeURIComponent(showId)}`,{
+      headers:{ Authorization:`Bearer ${token}` }
     });
 
-  } catch(err){
-    console.error(err);
-    seatContainer.innerHTML = "<p class='muted'>Error loading seats.</p>";
-  }
-}
-
-/* toggle local selection */
-function toggleSeat(div, seat){
-  if (div.classList.contains("booked")) return;
-  if (selectedSeats.includes(seat)){
-    selectedSeats = selectedSeats.filter(s=>s!==seat);
-    div.classList.remove("selected");
-  } else {
-    selectedSeats.push(seat);
-    div.classList.add("selected");
-  }
-  msg.textContent = `${selectedSeats.length} seat(s) selected`;
-}
-
-/* listen for live bookings from server */
-socket.on("bookingCreated", data => {
-  // server emits { seat, show, time, user }
-  if (data.show !== showId) return;
-  // mark seat as booked
-  const seatDivs = document.querySelectorAll(".seat");
-  seatDivs.forEach(div=>{
-    if(div.textContent === data.seat){
-      div.classList.add("booked"); div.classList.remove("selected");
-      div.onclick = null;
+    if (!res.ok) {
+      throw new Error("API error");
     }
-  });
-  // if user had it selected, remove it
-  if (selectedSeats.includes(data.seat)){
-    selectedSeats = selectedSeats.filter(s=>s!==data.seat);
-    msg.textContent = `${selectedSeats.length} seat(s) selected`;
-  }
-});
 
-/* proceed to summary (store selectedSeats with price mapping + checkout payload) */
-summaryBtn.addEventListener("click", async () => {
-  if (selectedSeats.length === 0) {
-    msg.textContent = "Select at least one seat";
+    data = await res.json();
+  } catch (err) {
+    console.error("Seat API failed:", err);
+    c.innerHTML = "⚠️ Failed to load seats. Check backend.";
     return;
   }
+  bookedSeats = [...(data.booked || []), ...(data.locked || [])];
+  c.innerHTML="";
+  console.log("BOOKED SEATS:", bookedSeats);
 
-  // Build raw seat list for backend booking
-  const payload = {
-    show: showId,
-    seats: selectedSeats
-  };
+  seatConfig.rows.forEach(r=>{
+    const row=document.createElement("div");
+    row.className="row";
 
-  // Build priced seat list for UI summary
-  const seatPrices = selectedSeats.map(s => {
-    const row = s.replace(/[0-9]/g, "");
-    const cat = seatConfig.rowToCategory[row] || "Normal";
-    return { seat: s, category: cat, price: seatConfig.prices[cat] || 0 };
+    for(let i=1;i<=seatConfig.seatsPerRow;i++){
+      const id=`${r}${i}`;
+      const s=document.createElement("div");
+      s.className="seat";
+      s.textContent=id;
+      s.style.border=`2px solid ${categoryColor(seatConfig.rowToCategory[r])}`;
+      s.setAttribute("aria-label",`Seat ${id}`);
+      s.setAttribute("role","button");
+
+      if(bookedSeats.includes(id)){
+        s.classList.add("booked");
+      }else{
+        s.onclick=()=>toggleSeat(s,id);
+      }
+      row.appendChild(s);
+    }
+    c.appendChild(row);
   });
+}
 
-  // Persist both payloads
-  localStorage.setItem("checkoutPayload", JSON.stringify(payload));
-  localStorage.setItem("selectedSeats", JSON.stringify(seatPrices));
-  localStorage.setItem("selectedDate", selectedDate);
+/* ================= SEAT TOGGLE ================= */
+function toggleSeat(div, seat) {
+  if (div.classList.contains("booked")) return;
 
-  // Go to summary where user confirms and backend booking is performed
-  window.location.href = "summary.html";
+  const row = seat.replace(/[0-9]/g, "");
+  const category = seatConfig?.rowToCategory?.[row];
+
+  if (selectedSeats.includes(seat)) {
+    selectedSeats = selectedSeats.filter(s => s !== seat);
+    div.classList.remove("selected");
+  } else {
+    if (selectedSeats.length >= seatConfig.maxSeats) {
+      msg.textContent = "Max 6 seats allowed";
+      return;
+    }
+
+    selectedSeats.push(seat);
+    div.classList.add("selected");
+
+    // 🎥 Trigger 360° Viewer
+    if (typeof startViewer === "function" && category) {
+      startViewer(category);
+    }
+  }
+
+  updateSummary();
+}
+
+/* ================= SOCKET ================= */
+socket.on("bookingCreated",data=>{
+  if(data.show!==showId) return;
+  document.querySelectorAll(".seat").forEach(s=>{
+    if(s.textContent===data.seat){
+      s.classList.add("booked");
+      s.classList.remove("selected");
+      s.onclick=null;
+    }
+  });
+  selectedSeats=selectedSeats.filter(s=>s!==data.seat);
+  updateSummary();
 });
 
-/* back / logout */
-document.getElementById("backBtn").onclick = ()=> history.back();
-document.getElementById("logoutBtn").onclick = ()=> { localStorage.clear(); location.href = "login.html"; };
+/* ================= SUMMARY ================= */
+document.getElementById("summaryBtn").onclick=()=>{
+  const payload={ show:showId, seats:selectedSeats };
+  const priced=selectedSeats.map(s=>{
+    const r=s.replace(/[0-9]/g,"");
+    return { seat:s, category:seatConfig.rowToCategory[r], price:seatConfig.prices[seatConfig.rowToCategory[r]] };
+  });
 
-/* init */
+  localStorage.setItem("checkoutPayload",JSON.stringify(payload));
+  localStorage.setItem("selectedSeats",JSON.stringify(priced));
+  localStorage.setItem("selectedDate",date);
+  location.href="summary.html";
+};
+
+/* ================= NAV ================= */
+document.getElementById("backBtn").onclick=()=>history.back();
+document.getElementById("logoutBtn").onclick=()=>{
+  localStorage.clear();
+  location.href="login.html";
+};
+
+/* ================= INIT ================= */
 renderLegend();
 loadSeats();
+updateSummary();
 </script>
 
-<style>
-:root{--panel:#0f1318;--text:#f6f7f9;--muted:#c2c7d1;--primary:#6ea8fe}
-body{background:#0b0d10;color:var(--text);font-family:Inter,system-ui;margin:0}
-.nav-header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--panel)}
-.container{max-width:1000px;margin:2rem auto;padding:1rem}
-.row{display:flex;gap:.5rem;margin-bottom:.6rem;align-items:center}
-.seat{width:44px;height:44px;background:#0b1220;color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:.2rem}
-.seat.selected{background:linear-gradient(135deg,#6ea8fe,#a78bfa);color:#000}
-.seat.booked{background:#b91c1c;cursor:not-allowed}
-.btn-primary{background:var(--primary);border:none;color:#fff;padding:.6rem 1rem;border-radius:8px;cursor:pointer}
-.btn-secondary{background:none;border:1px solid rgba(255,255,255,.15);color:var(--text);padding:.4rem .7rem;border-radius:8px}
-.muted{color:var(--muted)}
-</style>
-<script src="script.js"></script>
+<!-- ✅ 360° Screen Preview — Upgraded Panoramic Viewer -->
+<section id="viewerSection" style="margin-top:2rem;display:none">
+  <div style="text-align:center;margin-bottom:1rem">
+    <h3 style="margin:0">🎥 360° Seat View</h3>
+    <p id="viewerLabel" class="muted" style="margin:.3rem 0 0">Select a seat to preview its view</p>
+  </div>
+
+  <div id="viewer" style="
+    width: 100%;
+    max-width: 750px;
+    height: 420px;
+    margin: auto;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #000;
+    touch-action: none;
+    cursor: grab;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow:
+      0 0 30px rgba(96,165,250,.3),
+      0 0 70px rgba(192,132,252,.2);
+  ">
+    <img id="viewerImg"
+         src=""
+         alt="360 seat view"
+         draggable="false"
+         style="
+           position: absolute;
+           height: 100%;
+           width: auto;
+           min-width: 200%;
+           object-fit: cover;
+           left: 0;
+           top: 0;
+           transition: none;
+           user-select: none;
+           pointer-events: none;
+         " />
+
+    <!-- Category badge -->
+    <div id="viewerBadge" style="
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.15);
+      z-index: 10;
+    "></div>
+
+    <!-- Drag hint -->
+    <div id="dragHint" style="
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      backdrop-filter: blur(10px);
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
+      z-index: 10;
+      transition: opacity 0.5s ease;
+    ">← Drag to look around →</div>
+  </div>
+</section>
+
+<script>
+/* ================= UPGRADED 360° PANORAMIC VIEWER ================= */
+(function() {
+  const viewerSection = document.getElementById("viewerSection");
+  const viewerImg = document.getElementById("viewerImg");
+  const viewer = document.getElementById("viewer");
+  const viewerBadge = document.getElementById("viewerBadge");
+  const viewerLabel = document.getElementById("viewerLabel");
+  const dragHint = document.getElementById("dragHint");
+
+  if (!viewerSection || !viewerImg || !viewer) return;
+
+  let isDragging = false;
+  let startX = 0;
+  let currentX = 0;
+  let imgWidth = 0;
+  let containerWidth = 0;
+  let activeCategory = null;
+
+  const categoryLabels = {
+    VIP: { text: "👑 VIP — Front Row", color: "#f59e0b" },
+    Premium: { text: "💎 Premium — Center", color: "#7c3aed" },
+    Normal: { text: "🎬 Normal — Back Row", color: "#6ea8fe" }
+  };
+
+  function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+  }
+
+  function updatePosition() {
+    const maxScroll = Math.max(0, imgWidth - containerWidth);
+    currentX = clamp(currentX, -maxScroll, 0);
+    viewerImg.style.left = currentX + "px";
+  }
+
+  window.startViewer = function(category) {
+    activeCategory = category;
+    currentX = 0;
+
+    // Load the panoramic image
+    viewerImg.src = `assets/views/${category}/001.jpg`;
+
+    // Update badge
+    const cat = categoryLabels[category] || categoryLabels.Normal;
+    viewerBadge.textContent = cat.text;
+    viewerBadge.style.borderColor = cat.color;
+    viewerBadge.style.color = cat.color;
+
+    // Update label
+    viewerLabel.textContent = `Viewing from ${category} section`;
+
+    // Show viewer
+    viewerSection.style.display = "block";
+
+    // Reset drag hint
+    if (dragHint) {
+      dragHint.style.opacity = "1";
+      setTimeout(() => { dragHint.style.opacity = "0"; }, 3000);
+    }
+
+    // Wait for image to load to get dimensions
+    viewerImg.onload = () => {
+      imgWidth = viewerImg.naturalWidth * (viewer.offsetHeight / viewerImg.naturalHeight);
+      viewerImg.style.width = imgWidth + "px";
+      containerWidth = viewer.offsetWidth;
+
+      // Start centered
+      currentX = -(imgWidth - containerWidth) / 2;
+      updatePosition();
+    };
+
+    viewerSection.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  /* Desktop drag */
+  viewer.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    viewer.style.cursor = "grabbing";
+    e.preventDefault();
+  });
+
+  document.addEventListener("mouseup", () => {
+    isDragging = false;
+    viewer.style.cursor = "grab";
+  });
+
+  viewer.addEventListener("mouseleave", () => {
+    isDragging = false;
+    viewer.style.cursor = "grab";
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    const delta = e.clientX - startX;
+    currentX += delta;
+    startX = e.clientX;
+    updatePosition();
+  });
+
+  /* Touch support */
+  viewer.addEventListener("touchstart", (e) => {
+    isDragging = true;
+    startX = e.touches[0].clientX;
+  });
+
+  viewer.addEventListener("touchend", () => {
+    isDragging = false;
+  });
+
+  viewer.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    const delta = e.touches[0].clientX - startX;
+    currentX += delta;
+    startX = e.touches[0].clientX;
+    updatePosition();
+    e.preventDefault();
+  }, { passive: false });
+})();
+
+</script>
 </body>
 </html>

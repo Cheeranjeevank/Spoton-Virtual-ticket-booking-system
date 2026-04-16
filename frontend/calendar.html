@@ -1,46 +1,195 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Select Date • SpotOn</title>
+
+  <!-- Global theme -->
   <link rel="stylesheet" href="style.css" />
+
   <style>
-    .date-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem}
-    .date-card{background:var(--panel);padding:1rem;border-radius:12px;text-align:center;cursor:pointer}
-    .date-card:hover{transform:translateY(-4px);background:rgba(110,168,254,0.12)}
-  </style>
+/* ===============================
+   PAGE BACKGROUND
+   =============================== */
+body {
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(96,165,250,.18), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(192,132,252,.18), transparent 45%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Header */
+.calendar-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.calendar-header h2 {
+  margin-bottom: 0.3rem;
+}
+
+.calendar-header p {
+  font-size: 0.9rem;
+}
+
+/* DATE GRID */
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1.2rem;
+  margin-top: 2rem;
+}
+
+/* DATE CARD */
+.date-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 1.2rem 0.8rem;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
+}
+
+/* Date parts */
+.date-day {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.date-number {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.date-month {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Neon border */
+.date-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    #60a5fa,
+    #c084fc,
+    transparent
+  );
+  opacity: 0.5;
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Hover */
+.date-card:hover {
+  transform: translateY(-6px) scale(1.05);
+  box-shadow:
+    0 0 25px rgba(96,165,250,.45),
+    0 0 60px rgba(192,132,252,.35);
+}
+
+/* Selected */
+.date-card.selected {
+  background: rgba(96,165,250,.15);
+  box-shadow:
+    0 0 30px rgba(96,165,250,.6),
+    0 0 80px rgba(192,132,252,.5);
+}
+
+</style>
 </head>
-<body>
+
+<body class="neon-page">
+
   <main class="container">
-    <h2>Select Date</h2>
-    <p class="muted">Pick a date for your show</p>
+    <div class="calendar-header">
+      <h2>📅 Select Date</h2>
+      <p class="muted">Choose your show date</p>
+    </div>
     <div id="dateGrid" class="date-grid"></div>
   </main>
 
 <script>
-const days = 14; // next N days
+/* ---------- FLOW CHECK (UNCHANGED) ---------- */
+const selectedMovie = localStorage.getItem("selectedMovie");
+const selectedVenue = localStorage.getItem("selectedVenue");
+const selectedScreen = localStorage.getItem("selectedScreen");
+
+if (!selectedMovie) {
+  window.location.href = "movies.html";
+} else if (!selectedVenue) {
+  window.location.href = "venues.html";
+} else if (!selectedScreen) {
+  window.location.href = "screens.html";
+}
+
+/* ---------- DATE GENERATION (UNCHANGED) ---------- */
+const days = 14;
 const grid = document.getElementById("dateGrid");
-for(let i=0;i<days;i++){
-  const d = new Date(); d.setDate(d.getDate()+i);
+
+for (let i = 0; i < days; i++) {
+  const d = new Date();
+  d.setDate(d.getDate() + i);
+
   const iso = d.toISOString().split("T")[0];
-  const display = d.toDateString();
+  // const display = d.toDateString();
+
   const card = document.createElement("div");
   card.className = "date-card";
-  card.textContent = display;
-  card.onclick = ()=> {
+
+  const day = d.toLocaleDateString("en-US", { weekday: "short" });
+  const dateNum = d.getDate();
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+
+  card.innerHTML = `
+    <div class="date-day">${day}</div>
+    <div class="date-number">${dateNum}</div>
+    <div class="date-month">${month}</div>
+  `;
+
+  card.onclick = () => {
+    document.querySelectorAll(".date-card").forEach(c => c.classList.remove("selected"));
+    card.classList.add("selected");
+
     localStorage.setItem("selectedDate", iso);
-    // next step is seat selection via summary flow; we go back to timings then seats
-    // if user already selected screen/time, go to seatSelection, else to timings
-    if(localStorage.getItem("selectedScreen") && localStorage.getItem("selectedTime")){
-      window.location.href = "seatSelection.html";
-    } else {
+
+    setTimeout(() => {
       window.location.href = "timings.html";
-    }
+    }, 200);
   };
+
   grid.appendChild(card);
 }
 </script>
-<script src="script.js"></script>
+
+<script src="js/script.js"></script>
 </body>
 </html>

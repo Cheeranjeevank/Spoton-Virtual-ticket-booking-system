@@ -1,12 +1,48 @@
-// seed.js — Standalone Theatre Seeder for SpotOn
+// ===========================================================
+// seed.js — PostgreSQL Theatre Seeder for SpotOn (FINAL)
+// ===========================================================
 
-import mongoose from "mongoose";
 import dotenv from "dotenv";
-import Theatre from "./Models/Theatre.js";
+import sequelize from "./config/db.js";
+import { DataTypes } from "sequelize";
 
 dotenv.config();
 
-// ------------------ FULL SEED DATA ------------------
+/* ====================== MODELS ====================== */
+
+// ---------- Theatre ----------
+const Theatre = sequelize.define("Theatre", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  venue: { type: DataTypes.STRING, unique: true },
+  location: DataTypes.STRING,
+  image: DataTypes.STRING
+}, { tableName: "theatres", timestamps: false });
+
+// ---------- Screen ----------
+const Screen = sequelize.define("Screen", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  name: DataTypes.STRING,
+  tags: DataTypes.ARRAY(DataTypes.TEXT),
+  timings: DataTypes.ARRAY(DataTypes.TEXT)
+}, { tableName: "screens", timestamps: false });
+
+// ---------- Seat Category ----------
+const SeatCategory = sequelize.define("SeatCategory", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  row_name: DataTypes.STRING,
+  category: DataTypes.STRING,
+  price: DataTypes.INTEGER
+}, { tableName: "seat_categories", timestamps: false });
+
+// Relations
+Theatre.hasMany(Screen, { foreignKey: "theatre_id" });
+Screen.belongsTo(Theatre, { foreignKey: "theatre_id" });
+
+Screen.hasMany(SeatCategory, { foreignKey: "screen_id" });
+SeatCategory.belongsTo(Screen, { foreignKey: "screen_id" });
+
+/* ====================== SEED DATA ====================== */
+
 const seedData = [
   {
     venue: "PVR Cinemas",
@@ -19,13 +55,7 @@ const seedData = [
         timings: ["10:30 AM", "1:15 PM", "4:00 PM", "7:30 PM"],
         layout: {
           rows: ["A", "B", "C", "D", "E"],
-          rowToCategory: {
-            A: "VIP",
-            B: "VIP",
-            C: "Premium",
-            D: "Normal",
-            E: "Normal"
-          },
+          rowToCategory: { A: "VIP", B: "VIP", C: "Premium", D: "Normal", E: "Normal" },
           seatsPerRow: 10,
           prices: { VIP: 350, Premium: 220, Normal: 150 }
         }
@@ -36,12 +66,7 @@ const seedData = [
         timings: ["11:00 AM", "2:30 PM", "6:15 PM", "9:45 PM"],
         layout: {
           rows: ["A", "B", "C", "D"],
-          rowToCategory: {
-            A: "VIP",
-            B: "Premium",
-            C: "Normal",
-            D: "Normal"
-          },
+          rowToCategory: { A: "VIP", B: "Premium", C: "Normal", D: "Normal" },
           seatsPerRow: 12,
           prices: { VIP: 400, Premium: 250, Normal: 160 }
         }
@@ -60,106 +85,64 @@ const seedData = [
         timings: ["10:00 AM", "1:00 PM", "4:00 PM"],
         layout: {
           rows: ["A", "B", "C", "D"],
-          rowToCategory: {
-            A: "VIP",
-            B: "Premium",
-            C: "Normal",
-            D: "Normal"
-          },
+          rowToCategory: { A: "VIP", B: "Premium", C: "Normal", D: "Normal" },
           seatsPerRow: 8,
           prices: { VIP: 330, Premium: 210, Normal: 150 }
-        }
-      }
-    ]
-  },
-  {
-    venue: "Sathyam Cinemas",
-    location: "Madurai",
-    image: "SATHYAM.png",
-    screens: [
-      {
-        name: "AUDI 1",
-        tags: ["Dolby"],
-        timings: ["9:30 AM", "12:30 PM", "3:30 PM", "6:30 PM"],
-        layout: {
-          rows: ["A", "B", "C", "D", "E", "F"],
-          rowToCategory: { "A": "VIP", "B": "VIP", "C": "Premium", "D": "Premium", "E": "Normal", "F": "Normal" },
-          seatsPerRow: 9,
-          prices: { "VIP": 360, "Premium": 240, "Normal": 160 }
-        }
-      },
-      {
-        name: "AUDI 2",
-        tags: ["Standard"],
-        timings: ["10:00 AM", "1:00 PM", "4:00 PM", "7:00 PM"],
-        layout: {
-          rows: ["A", "B", "C", "D", "E"],
-          rowToCategory: { "A": "VIP", "B": "Premium", "C": "Premium", "D": "Normal", "E": "Normal" },
-          seatsPerRow: 10,
-          prices: { "VIP": 340, "Premium": 230, "Normal": 150 }
-        }
-      },
-      {
-        name: "AUDI 3",
-        tags: ["Standard"],
-        timings: ["11:00 AM", "2:00 PM", "5:00 PM", "8:00 PM"],
-        layout: {
-          rows: ["A", "B", "C", "D"],
-          rowToCategory: { "A": "VIP", "B": "Premium", "C": "Normal", "D": "Normal" },
-          seatsPerRow: 8,
-          prices: { "VIP": 330, "Premium": 200, "Normal": 150 }
-        }
-      }
-    ]
-  },
-  {
-    venue: "Luxe IMAX",
-    location: "Bangalore",
-    image: "IMAX.jpeg",
-    screens: [
-      {
-        name: "IMAX Blue",
-        tags: ["IMAX"],
-        timings: ["10:15 AM", "1:20 PM", "4:25 PM", "7:30 PM"],
-        layout: {
-          rows: ["A", "B", "C", "D"],
-          rowToCategory: { "A": "VIP", "B": "Premium", "C": "Premium", "D": "Normal" },
-          seatsPerRow: 12,
-          prices: { "VIP": 450, "Premium": 260, "Normal": 170 }
-        }
-      },
-      {
-        name: "IMAX Red",
-        tags: ["IMAX"],
-        timings: ["11:10 AM", "2:45 PM", "6:10 PM", "9:30 PM"],
-        layout: {
-          rows: ["A", "B", "C", "D"],
-          rowToCategory: { "A": "VIP", "B": "Premium", "C": "Premium", "D": "Normal" },
-          seatsPerRow: 12,
-          prices: { "VIP": 450, "Premium": 260, "Normal": 170 }
         }
       }
     ]
   }
 ];
 
-// ------------------ RUN SEEDER ------------------
+/* ====================== RUN SEEDER ====================== */
+
 async function run() {
   try {
-    console.log("Connecting to MongoDB...");
-    await mongoose.connect(process.env.MONGO_URI);
+    console.log("🔌 Connecting to PostgreSQL...");
+    await sequelize.authenticate();
 
-    console.log("Clearing old theatres...");
-    await Theatre.deleteMany({});
+    console.log("🧹 Clearing old data...");
+    await SeatCategory.destroy({ where: {} });
+    await Screen.destroy({ where: {} });
+    await Theatre.destroy({ where: {} });
 
-    console.log("Inserting new theatres...");
-    await Theatre.insertMany(seedData);
+    console.log("🌱 Seeding theatres...");
 
-    console.log("✅ Seeding complete.");
+    for (const theatreData of seedData) {
+      const theatre = await Theatre.create({
+        venue: theatreData.venue,
+        location: theatreData.location,
+        image: theatreData.image
+      });
+
+      for (const screenData of theatreData.screens) {
+        const screen = await Screen.create({
+          theatre_id: theatre.id,
+          name: screenData.name,
+          tags: screenData.tags,
+          timings: screenData.timings
+        });
+
+        // Convert layout → seat_categories
+        for (const row of screenData.layout.rows) {
+          const category = screenData.layout.rowToCategory[row];
+          const price = screenData.layout.prices[category];
+
+          await SeatCategory.create({
+            screen_id: screen.id,
+            row_name: row,
+            category,
+            price
+          });
+        }
+      }
+    }
+
+    console.log("✅ PostgreSQL seeding completed successfully!");
   } catch (err) {
     console.error("❌ Seeder error:", err);
   } finally {
-    mongoose.connection.close();
+    await sequelize.close();
   }
 }
 

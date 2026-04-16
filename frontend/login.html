@@ -17,6 +17,13 @@
   --primary: #6ea8fe;
   --accent: #a78bfa;
   --border: #233043;
+  --glass-bg: rgba(255,255,255,0.08);
+  --glass-border: rgba(255,255,255,0.18);
+  --blur: blur(16px);
+  --neon-blue: rgba(96,165,250,.45);
+  --neon-violet: rgba(192,132,252,.35);
+  --cursor-glow: rgba(96,165,250,.6);
+  --success-glow: rgba(34,197,94,.7);
 }
 body {
   background: var(--bg);
@@ -28,12 +35,20 @@ body {
   margin: 0;
 }
 .auth-card {
-  background: var(--panel);
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   padding: 2rem;
   border-radius: 20px;
   width: min(400px, 90%);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-  transition: transform 0.2s ease;
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 0 35px var(--neon-blue),
+    0 0 80px var(--neon-violet),
+    0 10px 25px rgba(0, 0, 0, 0.4);
+  transition: transform .25s ease, box-shadow .25s ease;
+  position: relative;
+  overflow: hidden;
 }
 .auth-card:hover {
   transform: translateY(-4px);
@@ -97,6 +112,159 @@ input:focus {
 }
 .success { color: #4ade80; } /* green */
 .error { color: #f87171; }   /* red */
+
+/* =====================================================
+   LOGIN / SIGNUP TABS – GLASSY & EASY SWITCH
+   (No layout or HTML changes)
+   ===================================================== */
+
+/* Tabs container stays visible & clean */
+.auth-card .tabs {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 14px;
+  padding: 6px;
+  border: 1px solid var(--glass-border);
+  display: flex;
+  gap: 6px;
+}
+
+/* Individual tab buttons – glassy */
+.auth-card .tab {
+  flex: 1;
+  background: transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  position: relative;
+  transition: 
+    background .3s ease,
+    color .3s ease,
+    box-shadow .3s ease;
+}
+
+/* Hover state */
+.auth-card .tab:hover {
+  color: var(--text);
+  box-shadow:
+    0 0 20px rgba(96,165,250,.25),
+    0 0 40px rgba(192,132,252,.2);
+}
+
+/* Active tab – neon glass */
+.auth-card .tab.active {
+  background: rgba(255,255,255,0.12);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-border),
+    0 0 25px rgba(96,165,250,.35),
+    0 0 60px rgba(192,132,252,.25);
+}
+
+/* Subtle glow indicator */
+.auth-card .tab.active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    rgba(96,165,250,.35),
+    rgba(192,132,252,.35),
+    rgba(245,216,138,.25)
+  );
+  opacity: .25;
+  filter: blur(14px);
+  pointer-events: none;
+}
+</style>
+<style>
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    120deg,
+    transparent 20%,
+    var(--neon-blue),
+    var(--neon-violet),
+    transparent 80%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+input:hover {
+  box-shadow:
+    0 0 12px rgba(96,165,250,.35),
+    0 0 24px rgba(192,132,252,.25);
+}
+input:focus {
+  box-shadow:
+    0 0 0 2px rgba(96,165,250,.35),
+    0 0 25px rgba(96,165,250,.45),
+    0 0 50px rgba(192,132,252,.35);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(96,165,250,.18), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(192,132,252,.18), transparent 40%);
+  animation: neonMove 18s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes neonMove {
+  from { transform: translateY(0) scale(1); }
+  to   { transform: translateY(-20px) scale(1.1); }
+}
+
+/* ===== Mouse-reactive neon glow ===== */
+.auth-card {
+  --mx: 50%;
+  --my: 50%;
+}
+
+.auth-card::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(
+    500px circle at var(--mx) var(--my),
+    rgba(96,165,250,.35),
+    rgba(192,132,252,.25),
+    transparent 60%
+  );
+  filter: blur(60px);
+  opacity: .7;
+  pointer-events: none;
+}
+
+/* ===== Neon success pulse ===== */
+.auth-card.success {
+  animation: successPulse 1.4s ease forwards;
+  box-shadow:
+    0 0 40px var(--success-glow),
+    0 0 90px var(--success-glow),
+    0 10px 25px rgba(0,0,0,.4);
+}
+
+@keyframes successPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
 </style>
 </head>
 <body>
@@ -110,8 +278,23 @@ input:focus {
 
   <!-- Login Form -->
   <form id="loginForm" class="active">
-    <input type="email" id="loginEmail" placeholder="Email" required />
-    <input type="password" id="loginPassword" placeholder="Password" required minlength="6" />
+    <input
+      type="email"
+      id="loginEmail"
+      name="email"
+      placeholder="Email"
+      required
+    />
+  
+    <input
+      type="password"
+      id="loginPassword"
+      name="password"
+      placeholder="Password"
+      required
+      minlength="6"
+    />
+  
     <button type="submit" class="btn">Login</button>
   </form>
 
@@ -119,6 +302,10 @@ input:focus {
   <form id="signupForm">
     <input type="text" id="signupName" placeholder="Full Name" required />
     <input type="email" id="signupEmail" placeholder="Email" required />
+
+    <!-- Date of Birth (18+ only) -->
+    <input type="date" id="signupDob" required />
+
     <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" required minlength="6" />
     <button type="submit" class="btn">Create Account</button>
   </form>
@@ -127,8 +314,26 @@ input:focus {
 </div>
 
 <script>
-const API_BASE = "http://localhost:5503/api"; // backend base URL
+function getApiBase() {
+  const origin = window.location.origin;
+
+  // DevTunnel (backend + frontend same URL)
+  if (origin.includes(".devtunnels.ms")) {
+    return origin + "/api";
+  }
+
+  // Localhost development
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+    return "http://localhost:5507/api";
+  }
+
+  // Default (static hosting)
+  return origin + "/api";
+}
+
+const API_BASE = getApiBase();// backend base URL
 const messageBox = document.getElementById("message");
+const authCard = document.querySelector(".auth-card");
 const tabs = document.querySelectorAll(".tab");
 const forms = document.querySelectorAll("form");
 
@@ -151,13 +356,31 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
 
   const name = document.getElementById("signupName").value.trim();
   const email = document.getElementById("signupEmail").value.trim();
+  const dob = document.getElementById("signupDob").value;
   const password = document.getElementById("signupPassword").value.trim();
+
+  function calculateAge(dob) {
+    const birth = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  if (!dob || calculateAge(dob) < 18) {
+    messageBox.textContent = "You must be at least 18 years old to create an account.";
+    messageBox.className = "message error";
+    return;
+  }
 
   try {
     const res = await fetch(`${API_BASE}/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password, dob })
     });
 
     const data = await res.json();
@@ -195,24 +418,43 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
     const data = await res.json();
 
-    if (!res.ok) throw new Error(data.message || data.error || "Login failed");
+    if (!res.ok) throw new Error(data.message || "Login failed");
 
-    // Save token & user
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
 
+    authCard.classList.add("success");
     messageBox.textContent = "Login successful! Redirecting...";
     messageBox.classList.add("success");
 
     setTimeout(() => {
-      window.location.href = "venues.html";
+      window.location.href = "movies.html";
     }, 1000);
+
   } catch (err) {
     messageBox.textContent = err.message;
     messageBox.classList.add("error");
   }
 });
+
+// Mouse reactive glow
+if (authCard) {
+  authCard.addEventListener("mousemove", (e) => {
+    const rect = authCard.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    authCard.style.setProperty("--mx", `${x}%`);
+    authCard.style.setProperty("--my", `${y}%`);
+  });
+}
+
+
+// Auto dark/light switch
+if (window.matchMedia("(prefers-color-scheme: light)").matches) {
+  document.documentElement.style.setProperty("--bg", "#f8fafc");
+  document.documentElement.style.setProperty("--text", "#0f172a");
+}
 </script>
-<script src="script.js"></script>
+<script src="js/script.js"></script>
 </body>
 </html>

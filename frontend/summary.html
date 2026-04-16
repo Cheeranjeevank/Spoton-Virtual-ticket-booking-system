@@ -1,104 +1,304 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Booking Summary • SpotOn</title>
 <link rel="stylesheet" href="style.css"/>
+<style>
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(96,165,250,.18), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(192,132,252,.18), transparent 45%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.summary-card {
+  backdrop-filter: blur(16px);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 560px;
+  margin: 3rem auto;
+  box-shadow:
+    0 0 25px rgba(96,165,250,.3),
+    0 0 60px rgba(192,132,252,.2);
+  animation: cardFade .5s ease;
+}
+
+@keyframes cardFade {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.summary-card h2 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.summary-row:last-child {
+  border-bottom: none;
+}
+
+.summary-label {
+  color: var(--muted, #9ca3af);
+  font-size: 0.9rem;
+}
+
+.summary-value {
+  font-weight: 600;
+}
+
+.seats-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.8rem 0;
+}
+
+.seat-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.seat-chip.VIP { border-color: #f59e0b; color: #f59e0b; }
+.seat-chip.Premium { border-color: #7c3aed; color: #c084fc; }
+.seat-chip.Normal { border-color: #6ea8fe; color: #6ea8fe; }
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 0 0.5rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  margin-top: 0.5rem;
+}
+
+.summary-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+}
+
+.summary-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.pay-btn {
+  background: linear-gradient(135deg, #6ea8fe, #a78bfa);
+  border: none;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(96,165,250,.3);
+}
+
+.pay-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(96,165,250,.5), 0 0 60px rgba(192,132,252,.3);
+}
+
+.pay-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.modify-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text);
+}
+
+.modify-btn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+#msg {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.success-text { color: #4ade80; }
+.error-text { color: #f87171; }
+</style>
 </head>
 <body>
 <main class="container">
-  <h2>Booking Summary</h2>
-  <div id="info"></div>
-  <div style="margin-top:1rem">
-    <button id="payBtn" class="btn-primary">Proceed to Payment</button>
-    <button id="cancelBtn" class="btn ghost" style="margin-left:.5rem">Modify</button>
+  <div class="summary-card">
+    <h2>🎟️ Booking Summary</h2>
+    <div id="info"></div>
+    <div class="summary-actions">
+      <button id="payBtn" class="pay-btn">💳 Pay Now</button>
+      <button id="cancelBtn" class="modify-btn">✏️ Modify</button>
+    </div>
+    <p id="msg" class="muted"></p>
   </div>
-  <p id="msg" class="muted"></p>
 </main>
 
 <script>
-function getApiBase(){ const origin = window.location.origin;
-  if (origin.includes(".devtunnels.ms")) return origin.replace("/frontend","") + "/api";
-  if (origin.includes("localhost")) return "http://localhost:5503/api";
+/* ---------- API ---------- */
+function getApiBase() {
+  const origin = window.location.origin;
+  if (origin.includes(".devtunnels.ms")) return origin + "/api";
+  if (origin.includes("localhost") || origin.includes("127.0.0.1"))
+    return "http://localhost:5507/api";
   return origin + "/api";
 }
 const API_BASE = getApiBase();
 
+/* ---------- Load Booking Data ---------- */
+const movie = localStorage.getItem("selectedMovie") || "";
 const venue = JSON.parse(localStorage.getItem("selectedVenue") || '{}');
-const screen = localStorage.getItem("selectedScreen");
-const time = localStorage.getItem("selectedTime");
-const date = localStorage.getItem("selectedDate");
+const screen = localStorage.getItem("selectedScreen") || "";
+const time = localStorage.getItem("selectedTime") || "";
+const date = localStorage.getItem("selectedDate") || "";
 const seats = JSON.parse(localStorage.getItem("selectedSeats") || "[]");
 const info = document.getElementById("info");
 const msg = document.getElementById("msg");
 
-if(!venue.name || !screen || !time || !date || seats.length===0){
+if (!venue.name || !screen || !time || !date || seats.length === 0) {
   location.href = "venues.html";
 }
 
-let total = 0;
-let html = `<p><strong>Venue:</strong> ${venue.name}</p>
-<p><strong>Screen:</strong> ${screen}</p>
-<p><strong>Time:</strong> ${time}</p>
-<p><strong>Date:</strong> ${date}</p>
-<h3>Seats</h3>`;
+/* ---------- Build Show ID (must match seatselection.html format) ---------- */
+const showId = `${movie} | ${venue.name} | ${screen} | ${date} | ${time}`;
 
-seats.forEach(s=>{
-  html += `<p>${s.seat} — ${s.category} — ₹${s.price}</p>`;
+/* ---------- Render Summary ---------- */
+let total = 0;
+let html = `
+  <div class="summary-row">
+    <span class="summary-label">🎬 Movie</span>
+    <span class="summary-value">${movie}</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">🏢 Venue</span>
+    <span class="summary-value">${venue.name}</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">📺 Screen</span>
+    <span class="summary-value">${screen}</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">📅 Date</span>
+    <span class="summary-value">${date}</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">🕐 Time</span>
+    <span class="summary-value">${time}</span>
+  </div>
+
+  <h3 style="margin: 1rem 0 0.5rem">Seats</h3>
+  <div class="seats-list">
+`;
+
+seats.forEach(s => {
+  html += `<span class="seat-chip ${s.category}">${s.seat} — ${s.category} — ₹${s.price}</span>`;
   total += s.price;
 });
-html += `<h2>Total: ₹${total}</h2>`;
+
+html += `</div>
+  <div class="total-row">
+    <span>Total</span>
+    <span>₹${total}</span>
+  </div>
+`;
+
 info.innerHTML = html;
 
-document.getElementById("cancelBtn").onclick = ()=> window.location.href = "seatSelection.html";
+/* ---------- Modify ---------- */
+document.getElementById("cancelBtn").onclick = () => {
+  window.location.href = "seatselection.html";
+};
+
+/* ---------- Pay & Book ---------- */
 document.getElementById("payBtn").onclick = async () => {
-  msg.textContent = "Processing booking...";
+  const payBtn = document.getElementById("payBtn");
+  payBtn.disabled = true;
+  msg.textContent = "Processing payment...";
+  msg.className = "muted";
 
   const token = localStorage.getItem("token");
-  if (!token) {
-    msg.textContent = "Login required.";
-    return location.href = "login.html";
-  }
-
-  // Build payload for backend multi‑seat booking
   const rawSeats = seats.map(s => s.seat);
-  const showId = `${venue.name} - ${screen} - ${time} - ${date}`;
-
-  const payload = {
-    show: showId,
-    seats: rawSeats
-  };
 
   try {
+    // 1️⃣ Create booking
     const res = await fetch(`${API_BASE}/bookings/multi`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + token
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        show: showId,
+        seats: rawSeats
+      })
     });
 
     const data = await res.json();
+
     if (!res.ok) {
-      msg.textContent = data.message || "Booking failed.";
+      msg.textContent = "❌ " + (data.message || "Booking failed");
+      msg.className = "error-text";
+      payBtn.disabled = false;
       return;
     }
 
-    // Save backend booking result
+    // 2️⃣ Mark as paid
+    const bookingIds = data.booking.map(b => b.id);
+
+    await fetch(`${API_BASE}/payment/mock`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({ bookingIds })
+    });
+
+    // 3️⃣ Store & redirect
     localStorage.setItem("lastBooking", JSON.stringify(data.booking));
 
-    msg.textContent = "Booking successful! Generating ticket...";
-    setTimeout(() => {
-      window.location.href = "ticket.html";
-    }, 700);
+    msg.textContent = "✅ Payment successful! Redirecting...";
+    msg.className = "success-text";
+
+    setTimeout(() => window.location.href = "ticket.html", 1000);
 
   } catch (err) {
-    msg.textContent = "Server/network error.";
+    msg.textContent = "❌ Payment failed. Server error.";
+    msg.className = "error-text";
+    payBtn.disabled = false;
     console.error(err);
   }
 };
 </script>
-<script src="script.js"></script>
 </body>
 </html>

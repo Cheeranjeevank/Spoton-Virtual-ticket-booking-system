@@ -1,14 +1,14 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/db");
 
-const messageSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true },
-  message: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+const Message = sequelize.define("Message", {
+  name: DataTypes.STRING,
+  email: DataTypes.STRING,
+  message: DataTypes.TEXT
+}, {
+  tableName: "messages",
+  createdAt: "created_at",
+  updatedAt: false
 });
 
-module.exports = mongoose.model("Message", messageSchema);
-app.get("/api/messages", authMiddleware, async (req, res) => {
-  const messages = await Message.find().sort({ createdAt: -1 });
-  res.json(messages);
-});
+module.exports = Message;

@@ -1,14 +1,4 @@
-// ===========================================================
-// SpotOn Backend — Final Updated Version with:
-// - Atomic Multi-Seat Booking
-// - QR Ticket Generation
-// - Socket.io Live Seat Updates
-// - Date-Based Show IDs
-// - Auto Seat Generation from Config
-// ===========================================================
-
 import express from "express";
-import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import cors from "cors";
@@ -18,395 +8,545 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 import QRCode from "qrcode";
-
-import Theatre from "./Models/Theatre.js";
+//import Razorpay from "razorpay";
+import sequelize from "./config/db.js";
+import { DataTypes, Op } from "sequelize";
 
 dotenv.config();
 const app = express();
 
-// -------------------- Middleware --------------------
+/* ====================== MIDDLEWARE ====================== */
 app.use(express.json());
-app.use(morgan("dev"));
 app.use(cors({ origin: true, credentials: true }));
+app.use(morgan("dev"));
 
-// -------------------- Database --------------------
-mongoose
-  .connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 })
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((e) => console.error("❌ MongoDB Error:", e.message));
+/* ====================== MODELS ====================== */
+// ---------- Theatre ----------
+const Theatre = sequelize.define("Theatre", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  venue: { type: DataTypes.TEXT, unique: true },
+  location: DataTypes.TEXT,
+  image: DataTypes.TEXT
+}, { tableName: "theatres", timestamps: false });
 
-// -------------------- Models --------------------
-const userSchema = new mongoose.Schema({
-  name: String,
-  email: { type: String, unique: true },
-  password: String,
+// ---------- Screen ----------
+const Screen = sequelize.define("Screen", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  name: DataTypes.TEXT,
+  tags: DataTypes.ARRAY(DataTypes.TEXT),
+  timings: DataTypes.ARRAY(DataTypes.TEXT)
+}, { tableName: "screens", timestamps: false });
+
+Theatre.hasMany(Screen, { foreignKey: "theatre_id" });
+Screen.belongsTo(Theatre, { foreignKey: "theatre_id" });
+
+// ---------- User ----------
+const User = sequelize.define("User", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  name: DataTypes.TEXT,
+  email: { type: DataTypes.TEXT, unique: true },
+  password: DataTypes.TEXT,
+  dob: { type: DataTypes.DATE, allowNull: false },
+  role: { type: DataTypes.TEXT, defaultValue: "user" }
+}, { tableName: "users", timestamps: false });
+
+// ---------- Booking ----------
+const Booking = sequelize.define("Booking", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  seat: DataTypes.TEXT,
+  show: DataTypes.TEXT,
+  status: { type: DataTypes.TEXT, defaultValue: "PENDING" }
+}, { tableName: "bookings", timestamps: true, updatedAt: false });
+
+User.hasMany(Booking, { foreignKey: "user_id" });
+Booking.belongsTo(User, { foreignKey: "user_id" });
+
+// ---------- Seat Lock ----------
+const SeatLock = sequelize.define("SeatLock", {
+  show: DataTypes.TEXT,
+  seat: DataTypes.TEXT,
+  expires_at: DataTypes.DATE
+}, { tableName: "seat_locks", timestamps: false });
+
+// ---------- Contact ----------
+const Message = sequelize.define("Message", {
+  name: DataTypes.TEXT,
+  email: DataTypes.TEXT,
+  message: DataTypes.TEXT
+}, { tableName: "messages", timestamps: true, createdAt: "created_at", updatedAt: false });
+const Payment = sequelize.define("Payment", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  booking_id: DataTypes.UUID,
+  razorpay_payment_id: DataTypes.TEXT,
+  razorpay_order_id: DataTypes.TEXT,
+  amount: DataTypes.INTEGER,
+  status: { type: DataTypes.TEXT, defaultValue: "PAID" }
+}, {
+  tableName: "payments",
+  timestamps: true,
+  createdAt: "created_at",
+  updatedAt: false
 });
-const User = mongoose.model("User", userSchema);
+/* ====================== EXPORT USERS (SEQUELIZE) ====================== */
+app.get("/api/export/users", async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: ["id", "name", "email", "dob"],
+      order: [["id", "ASC"]]
+    });
 
-const bookingSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  seat: String,
-  show: String,
-  time: { type: Date, default: Date.now },
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to export users" });
+  }
 });
-const Booking = mongoose.model("Booking", bookingSchema);
-
-const venueSchema = new mongoose.Schema({
-  name: String,
-  location: String,
-  image: String,
-});
-const Venue = mongoose.model("Venue", venueSchema);
-
-const messageSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  message: String,
-  createdAt: { type: Date, default: Date.now },
-});
-const Message = mongoose.model("Message", messageSchema);
-
-// -------------------- Seat Configuration (Custom) --------------------
-const seatConfig = {
-  rows: ["A", "B", "C", "D", "E"],
-
-  rowToCategory: {
-    A: "VIP",
-    B: "VIP",
-    C: "Premium",
-    D: "Normal",
-    E: "Normal",
-  },
-
-  prices: {
-    VIP: 350,
-    Premium: 220,
-    Normal: 150,
-  },
-
-  seatsPerRow: 8,
-};
-
-// Helper: generate seats like A1..A8, B1..B8, ...
-function generateSeats() {
-  const seats = [];
-  seatConfig.rows.forEach((row) => {
-    for (let i = 1; i <= seatConfig.seatsPerRow; i++) {
-      seats.push(`${row}${i}`);
-    }
-  });
-  return seats;
-}
-
-// ====================== AUTH MIDDLEWARE ======================
+/* ====================== AUTH MIDDLEWARE ====================== */
 function auth(req, res, next) {
   const header = req.headers.authorization;
-  if (!header)
-    return res.status(401).json({ message: "Authorization token missing" });
-
-  const token = header.split(" ")[1];
+  if (!header) return res.status(401).json({ message: "Token missing" });
 
   try {
+    const token = header.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded.id;
+    req.userRole = decoded.role;
     next();
   } catch {
-    return res.status(403).json({ message: "Invalid or expired token" });
+    res.status(403).json({ message: "Invalid token" });
   }
 }
 
-// ====================== AUTH ROUTES ======================
+
+function staffOnly(req, res, next) {
+  if (!["staff", "admin"].includes(req.userRole))
+    return res.status(403).json({ message: "Staff/Admin only" });
+  next();
+}
+
+/* ====================== AUTH ====================== */
 app.post("/api/signup", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+  const { name, email, password, dob } = req.body;
 
-    if (await User.findOne({ email }))
-      return res.status(400).json({ message: "Email already registered" });
-
-    const hashed = await bcrypt.hash(password, 10);
-    await User.create({ name, email, password: hashed });
-
-    res.json({ message: "Signup successful" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  function calculateAge(dob) {
+    const birth = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
   }
+
+  if (!dob || calculateAge(dob) < 18) {
+    return res.status(400).json({
+      message: "You must be at least 18 years old to register."
+    });
+  }
+
+  if (!password || password.length < 6)
+    return res.status(400).json({ message: "Password too short" });
+
+  if (await User.findOne({ where: { email } }))
+    return res.status(400).json({ message: "Email exists" });
+
+  const hashed = await bcrypt.hash(password, 10);
+  await User.create({ name, email, password: hashed, dob });
+
+  res.json({ message: "Signup successful" });
 });
 
 app.post("/api/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findOne({ where: { email } });
+  if (!user) return res.status(400).json({ message: "User not found" });
+
+  const ok = await bcrypt.compare(password, user.password);
+  if (!ok) return res.status(400).json({ message: "Invalid password" });
+
+  const token = jwt.sign(
+    { id: user.id, role: user.role, name: user.name, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: "2h" }
+  );
+
+  res.json({ token, user: { name: user.name, role: user.role } });
+});
+
+/* ====================== ADMIN / STAFF MGMT ====================== */
+app.post("/api/admin/promote", async (req, res) => {
+  const { email, role } = req.body;
   try {
-    const { email, password } = req.body;
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const u = await User.findOne({ email });
-    if (!u) return res.status(400).json({ message: "User not found" });
+    user.role = role || "staff";
+    await user.save();
 
-    const valid = await bcrypt.compare(password, u.password);
-    if (!valid) return res.status(400).json({ message: "Invalid password" });
-
-    const token = jwt.sign({ id: u._id }, process.env.JWT_SECRET, {
-      expiresIn: "2h",
-    });
-
-    res.json({ message: "Login successful", token, user: { name: u.name } });
+    res.json({ message: `User ${email} promoted to ${user.role}` });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: "Promotion failed" });
   }
 });
 
-// ====================== VENUES ======================
-app.get("/api/venues", async (req, res) => {
-  res.json(await Venue.find());
-});
-
-app.get("/api/seedVenues", async (req, res) => {
-  await Venue.deleteMany({});
-  const sample = [
-    { name: "PVR Cinemas", location: "Chennai", image: "PVR.jpg" },
-    { name: "INOX City Center", location: "Coimbatore", image: "INOX.jpeg" },
-    { name: "Sathyam Cinemas", location: "Madurai", image: "SATHYAM.png" },
-    { name: "Luxe IMAX", location: "Bangalore", image: "IMAX.jpeg" },
-  ];
-  await Venue.insertMany(sample);
-  res.json({ message: "Venues seeded" });
-});
-
-
-// ====================== SEAT MAP ======================
-app.get("/api/seats/:showId", async (req, res) => {
-  const seats = generateSeats();
-  const booked = await Booking.find({ show: req.params.showId }).select("seat");
-
-  res.json({
-    seats,
-    booked: booked.map((b) => b.seat),
+/* ====================== BOOKINGS ====================== */
+app.get("/api/bookings", auth, async (req, res) => {
+  const bookings = await Booking.findAll({
+    where: { user_id: req.user },
+    order: [["createdAt", "DESC"]]
   });
+  res.json(bookings);
 });
 
-// ====================== SINGLE-SEAT BOOKING ======================
-app.post("/api/booking", auth, async (req, res) => {
-  const { seat, show } = req.body;
+/* ====================== SEAT LOCK ====================== */
+app.post("/api/seats/lock", auth, async (req, res) => {
+  const { show, seat } = req.body;
+  const expires = new Date(Date.now() + 5 * 60 * 1000);
 
-  if (await Booking.findOne({ seat, show }))
-    return res.status(400).json({ message: `Seat ${seat} already booked` });
+  const exists =
+    await Booking.findOne({ where: { show, seat } }) ||
+    await SeatLock.findOne({ where: { show, seat } });
 
-  const b = await Booking.create({ user: req.user, seat, show });
+  if (exists) return res.status(400).json({ message: "Seat unavailable" });
 
-  io.emit("bookingCreated", { seat, show });
+  await SeatLock.create({ show, seat, expires_at: expires });
+  io.emit("seatLocked", { show, seat });
 
-  res.json({ message: `Seat ${seat} booked` });
+  res.json({ message: "Seat locked", expires });
 });
 
-// ====================== MULTI-SEAT BOOKING (ATOMIC) ======================
+app.delete("/api/seats/unlock", auth, async (req, res) => {
+  const { show, seat } = req.body;
+  await SeatLock.destroy({ where: { show, seat } });
+  io.emit("seatUnlocked", { show, seat });
+  res.json({ message: "Seat unlocked" });
+});
+
+/* ====================== MULTI-SEAT BOOKING ====================== */
 app.post("/api/bookings/multi", auth, async (req, res) => {
+  const { show, seats } = req.body;
+  const t = await sequelize.transaction();
+
   try {
-    const { show, seats, meta } = req.body;
-
-    if (!show || !Array.isArray(seats) || seats.length === 0)
-      return res.status(400).json({ message: "Show and seats required" });
-
-    const conflict = await Booking.findOne({ show, seat: { $in: seats } });
-
-    if (conflict)
-      return res
-        .status(400)
-        .json({ message: `Seat ${conflict.seat} already booked` });
-
-    const docs = seats.map((s) => ({
-      user: req.user,
-      seat: s,
-      show,
-    }));
-
-    const created = await Booking.insertMany(docs);
-
-    created.forEach((b) => {
-      io.emit("bookingCreated", { seat: b.seat, show: b.show });
+    const conflict = await Booking.findOne({
+      where: {
+        show,
+        seat: { [Op.in]: seats }
+      },
+      transaction: t
     });
+    if (conflict) throw new Error("Seat already booked");
 
-    res.json({ message: "Booking successful", booking: created });
-  } catch (err) {
-    res.status(500).json({ message: "Error", error: err.message });
-  }
-});
-
-// ====================== QR TICKET ======================
-app.get("/api/ticket/:id", auth, async (req, res) => {
-  try {
-    const b = await Booking.findById(req.params.id).lean();
-    if (!b) return res.status(404).json({ message: "Not found" });
-    if (String(b.user) !== req.user)
-      return res.status(403).json({ message: "Not allowed" });
-
-    const qr = await QRCode.toDataURL(
-      JSON.stringify({
-        id: b._id,
-        show: b.show,
-        seat: b.seat,
-        time: b.time,
-      })
+    await Booking.bulkCreate(
+      seats.map(s => ({ show, seat: s, user_id: req.user })),
+      { transaction: t }
     );
 
-    res.json({ qr });
+    const createdBookings = await Booking.findAll({
+      where: {
+        show,
+        seat: { [Op.in]: seats },
+        user_id: req.user
+      },
+      transaction: t
+    });
+
+    await SeatLock.destroy({ where: { show, seat: seats }, transaction: t });
+    await t.commit();
+
+    seats.forEach(seat => io.emit("bookingCreated", { show, seat }));
+    res.json({ message: "Booking successful", booking: createdBookings });
   } catch (err) {
-    res.status(500).json({ message: "Error generating QR" });
+    await t.rollback();
+    res.status(400).json({ message: err.message });
   }
 });
 
-// ====================== CONTACT FORM ======================
+/* ====================== PAYMENT ====================== */
+app.post("/api/payment/mock", auth, async (req, res) => {
+  const { bookingIds } = req.body;
+
+  await Booking.update(
+    { status: "PAID" },
+    { where: { id: bookingIds, user_id: req.user } }
+  );
+
+  res.json({ message: "Payment successful" });
+});
+
+/* ====================== PAYMENT STORE ====================== */
+app.post("/api/payment/store", auth, async (req, res) => {
+  const { bookingIds, razorpay_payment_id, razorpay_order_id, amount } = req.body;
+
+  try {
+    const payments = await Promise.all(
+      bookingIds.map(bid =>
+        Payment.create({
+          booking_id: bid,
+          razorpay_payment_id: razorpay_payment_id || "mock_" + Date.now(),
+          razorpay_order_id: razorpay_order_id || "mock_order",
+          amount: amount || 0,
+          status: "PAID"
+        })
+      )
+    );
+
+    // Also mark bookings as paid
+    await Booking.update(
+      { status: "PAID" },
+      { where: { id: bookingIds, user_id: req.user } }
+    );
+
+    res.json({ message: "Payment stored", payments });
+  } catch (err) {
+    console.error("Payment store error:", err);
+    res.status(500).json({ message: "Failed to store payment" });
+  }
+});
+
+/* ====================== QR TICKET ====================== */
+app.get("/api/ticket/:id", auth, async (req, res) => {
+  try {
+    const booking = await Booking.findByPk(req.params.id);
+    if (!booking || booking.user_id !== req.user)
+      return res.status(403).json({ message: "Not allowed" });
+
+    if (booking.status !== "PAID")
+      return res.status(400).json({ message: "Ticket not paid" });
+
+    // Group bookings (same user, show, and within 30s window)
+    const windowStart = new Date(new Date(booking.createdAt).getTime() - 30000);
+    const windowEnd = new Date(new Date(booking.createdAt).getTime() + 30000);
+
+    const related = await Booking.findAll({
+      where: {
+        user_id: req.user,
+        show: booking.show,
+        createdAt: { [Op.between]: [windowStart, windowEnd] }
+      }
+    });
+
+    const seats = related.map(b => b.seat).join(", ");
+    const showParts = booking.show.split(" | ");
+    const movie = showParts[0] || "SpotOn Movie";
+    const venue = showParts[1] || "";
+    const screen = showParts[2] || "";
+
+    const qrData = {
+      id: booking.id,
+      movie,
+      venue,
+      screen,
+      seats: related.map(b => b.seat)
+    };
+
+    // Use Host header for dynamic public URL
+    const host = req.headers.host || "localhost:5507";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const publicUrl = `${protocol}://${host}/check.html?id=${booking.id}`;
+
+    const qr = await QRCode.toDataURL(publicUrl);
+    res.json({ qr, seats });
+  } catch (err) {
+    console.error("QR Error:", err);
+    res.status(500).json({ message: "QR generation failed" });
+  }
+});
+
+/* ====================== PUBLIC TICKET VIEW ====================== */
+app.get("/api/ticket/public/:id", async (req, res) => {
+  try {
+    const booking = await Booking.findByPk(req.params.id);
+    if (!booking) return res.status(404).json({ message: "Ticket not found" });
+
+    // Group associated seats (30s window, same show, same user)
+    const windowStart = new Date(new Date(booking.createdAt).getTime() - 30000);
+    const windowEnd = new Date(new Date(booking.createdAt).getTime() + 30000);
+
+    const related = await Booking.findAll({
+      where: {
+        user_id: booking.user_id,
+        show: booking.show,
+        createdAt: { [Op.between]: [windowStart, windowEnd] }
+      }
+    });
+
+    const showParts = booking.show.split(" | ");
+    res.json({
+      id: booking.id,
+      movie: showParts[0] || "SpotOn Movie",
+      venue: showParts[1] || "",
+      screen: showParts[2] || "",
+      date: showParts[3] || "",
+      time: showParts[4] || "",
+      seats: related.map(b => b.seat).join(", "),
+      status: booking.status
+    });
+  } catch (err) {
+    console.error("Public Ticket Error:", err);
+    res.status(500).json({ message: "Failed to load ticket details" });
+  }
+});
+
+/* ====================== STAFF VERIFY ====================== */
+app.post("/api/ticket/verify", auth, staffOnly, async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const target = await Booking.findByPk(bookingId);
+
+    if (!target) return res.status(404).json({ message: "Invalid ticket" });
+    if (target.status !== "PAID" && target.status !== "USED")
+      return res.status(400).json({ message: "Ticket not valid" });
+
+    // Group associated seats (30s window)
+    const windowStart = new Date(new Date(target.createdAt).getTime() - 30000);
+    const windowEnd = new Date(new Date(target.createdAt).getTime() + 30000);
+
+    const related = await Booking.findAll({
+      where: {
+        user_id: target.user_id,
+        show: target.show,
+        createdAt: { [Op.between]: [windowStart, windowEnd] }
+      }
+    });
+
+    // Mark all as USED
+    await Booking.update(
+      { status: "USED" },
+      {
+        where: {
+          id: related.map(r => r.id)
+        }
+      }
+    );
+
+    res.json({
+      message: "Ticket Verified Successfully",
+      movie: target.show.split(" | ")[0],
+      seats: related.map(r => r.seat).join(", "),
+      count: related.length,
+      status: "USED"
+    });
+  } catch (err) {
+    console.error("Verify Error:", err);
+    res.status(500).json({ message: "Verification failed" });
+  }
+});
+
+/* ====================== CONTACT ====================== */
 app.post("/api/contact", async (req, res) => {
   const { name, email, message } = req.body;
-
-  if (!name || !email || !message)
-    return res.status(400).json({ message: "All fields required" });
-
   await Message.create({ name, email, message });
-
   res.json({ message: "Message received" });
 });
 
-// ====================== STATIC FRONTEND ======================
+/* ====================== STATIC ====================== */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-app.get("/", (req, res) => {
-  res.send("🎟️ SpotOn API Running Successfully");
+/* ====================== SERVER ====================== */
+const PORT = process.env.PORT || 5507;
+const server = app.listen(PORT, async () => {
+  await sequelize.authenticate();
+  await sequelize.sync(); // 🔥 ensures seat_locks table is created
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
-// ====================== SOCKET.IO SERVER ======================
-const PORT = process.env.PORT || 5503;
-const server = app.listen(PORT, () =>
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-);
-
-const io = new Server(server, {
-  cors: { origin: true, credentials: true },
-});
-
-io.on("connection", (s) => {
-  console.log("🟢 Client connected:", s.id);
-  s.on("disconnect", () => console.log("🔴 Client disconnected:", s.id));
-});
-
-
-// -------------------- SHOWDATA via DB --------------------
-// Get full theatre doc for a venue
+const io = new Server(server, { cors: { origin: true } });
+io.on("connection", s => console.log("🟢 Socket connected:", s.id));
+// ====================== THEATRES ======================
 app.get("/api/theatres", async (req, res) => {
   try {
-    const docs = await Theatre.find({}, "-__v -createdAt -updatedAt").lean();
-    res.json(docs);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching theatres", error: err.message });
-  }
-});
-
-// return screens/timings for a single venue
-app.get("/api/showdata/:venue", async (req, res) => {
-  try {
-    const name = decodeURIComponent(req.params.venue || "").trim();
-    const venueKey = await Theatre.findOne({
-      venue: { $regex: `^${name}$`, $options: "i" }
-    }).lean();
-
-    if (!venueKey) return res.json({}); // empty object for no match
-
-    // Map to { "Screen Name": [timings] } shape (like old UI expects)
-    const obj = {};
-    for (const s of (venueKey.screens || [])) {
-      obj[s.name] = s.timings || [];
-    }
-    res.json(obj);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching showdata", error: err.message });
-  }
-});
-
-// Return detailed screen object (layout + timings) for a venue+screen
-app.get("/api/screens/:venue/:screen", async (req, res) => {
-  try {
-    const venueName = decodeURIComponent(req.params.venue || "").trim();
-    const screenName = decodeURIComponent(req.params.screen || "").trim();
-
-    const th = await Theatre.findOne({ venue: { $regex: `^${venueName}$`, $options: "i" } }).lean();
-    if (!th) return res.status(404).json({ message: "Venue not found" });
-
-    const screen = (th.screens || []).find(s => s.name.toLowerCase() === screenName.toLowerCase());
-    if (!screen) return res.status(404).json({ message: "Screen not found" });
-
-    res.json(screen);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching screen", error: err.message });
-  }
-});
-
-// Seats route - uses screen layout (rows/seatsPerRow) from DB if available
-app.get("/api/seats/:showId", async (req, res) => {
-  // showId format: "Venue - Screen - Time - YYYY-MM-DD"
-  const showId = req.params.showId;
-  // decode & parse to find venue & screen
-  const parts = decodeURIComponent(showId).split(" - ");
-  const venueName = (parts[0] || "").trim();
-  const screenName = (parts[1] || "").trim();
-
-  // Default fallback seat config
-  let rows = ["A","B","C","D","E"];
-  let seatsPerRow = 8;
-  let rowToCategory = { A:"VIP", B:"VIP", C:"Premium", D:"Normal", E:"Normal" };
-  let prices = { VIP:350, Premium:220, Normal:150 };
-
-  try {
-    const th = await Theatre.findOne({ venue: { $regex: `^${venueName}$`, $options: "i" } }).lean();
-    if (th) {
-      const screen = (th.screens || []).find(s => s.name.toLowerCase() === screenName.toLowerCase());
-      if (screen && screen.layout) {
-        rows = screen.layout.rows || rows;
-        seatsPerRow = screen.layout.seatsPerRow || seatsPerRow;
-        rowToCategory = Object.fromEntries(Object.entries(screen.layout.rowToCategory || {}));
-        prices = Object.fromEntries(Object.entries(screen.layout.prices || {}));
-      }
-    }
-
-    // generate seats using rows & seatsPerRow
-    const seats = [];
-    rows.forEach(r => {
-      for (let i = 1; i <= seatsPerRow; i++) seats.push(`${r}${i}`);
+    const theatres = await Theatre.findAll({
+      attributes: ["venue", "location", "image"]
     });
 
-    // fetch bookings for show
-    const bookedDocs = await Booking.find({ show: showId }).select("seat -_id").lean();
-    const booked = bookedDocs.map(b => b.seat);
+    // 🔁 Map DB fields → frontend format
+    const formatted = theatres.map(t => ({
+      name: t.venue,
+      location: t.location,
+      image: t.image
+    }));
 
-    res.json({ seats, booked, layout: { rows, seatsPerRow, rowToCategory, prices } });
+    res.json(formatted);
   } catch (err) {
-    res.status(500).json({ message: "Error generating seat map", error: err.message });
+    console.error("Error fetching theatres:", err);
+    res.status(500).json({ message: "Failed to load theatres" });
   }
 });
-
-// ====================== Seed Theatres (POST / GET) ======================
-app.post("/api/seedTheatres", async (req, res) => {
-  // Accept seed body or use default sample.
-  const seed = req.body && Array.isArray(req.body) ? req.body : [
-    {
-      venue: "PVR Cinemas",
-      location: "Chennai",
-      image: "PVR.jpg",
-      screens: [
-        { name: "Screen 1 - Dolby", tags: ["Dolby"], timings: ["10:30 AM","1:15 PM","4:00 PM","7:30 PM"],
-          layout: { rows:["A","B","C","D","E"], rowToCategory: { A:"VIP",B:"VIP",C:"Premium",D:"Normal",E:"Normal" }, seatsPerRow:8, prices:{ VIP:350, Premium:220, Normal:150 } }
-        },
-        { name: "Screen 2 - IMAX", tags: ["IMAX"], timings: ["11:00 AM","2:30 PM","6:15 PM","9:45 PM"], layout: { rows:["A","B","C","D"], rowToCategory:{ A:"VIP",B:"Premium",C:"Normal",D:"Normal" }, seatsPerRow:10, prices:{ VIP:400, Premium:250, Normal:160 } } },
-        { name: "Screen 3 - Standard", tags: ["Standard"], timings: ["9:45 AM","12:40 PM","3:30 PM","6:45 PM"], layout:{ rows:["A","B","C","D","E"], rowToCategory:{ A:"VIP",B:"Premium",C:"Premium",D:"Normal",E:"Normal" }, seatsPerRow:8, prices:{ VIP:350, Premium:220, Normal:150 } } }
-      ]
-    },
-    // other theatres...
-  ];
-
+// ====================== SHOW TIMES (PostgreSQL) ======================
+app.get("/api/showdata/:venue", async (req, res) => {
   try {
-    // Remove existing to avoid duplicates if you want a fresh seed
-    await Theatre.deleteMany({});
-    await Theatre.insertMany(seed);
-    res.json({ message: "Theatres seeded", count: seed.length });
+    const venueName = decodeURIComponent(req.params.venue || "").trim();
+
+    // 1️⃣ Find theatre
+    const theatre = await Theatre.findOne({
+      where: { venue: venueName }
+    });
+
+    if (!theatre) {
+      return res.json({});
+    }
+
+    // 2️⃣ Get screens for theatre
+    const screens = await Screen.findAll({
+      where: { theatre_id: theatre.id },
+      attributes: ["name", "timings"]
+    });
+
+    // 3️⃣ Convert to frontend format
+    const result = {};
+    screens.forEach(s => {
+      result[s.name] = s.timings || [];
+    });
+
+    res.json(result);
+
   } catch (err) {
-    res.status(500).json({ message: "Seeding failed", error: err.message });
+    console.error("Showdata error:", err);
+    res.status(500).json({ message: "Failed to load show timings" });
+  }
+});
+app.get("/api/seats/:showId", async (req, res) => {
+  try {
+    const showId = decodeURIComponent(req.params.showId);
+
+    const bookedRows = await Booking.findAll({
+      where: { show: showId },
+      attributes: ["seat"]
+    });
+
+    const lockedRows = await SeatLock.findAll({
+      where: {
+        show: showId,
+        expires_at: { [Op.gt]: new Date() }
+      },
+      attributes: ["seat"]
+    });
+
+    const booked = bookedRows.map(b => b.seat);
+    const locked = lockedRows.map(l => l.seat);
+
+    // Seat layout (matches frontend)
+    const rows = ["A", "B", "C", "D", "E"];
+    const seatsPerRow = 8;
+
+    const seats = [];
+    rows.forEach(r => {
+      for (let i = 1; i <= seatsPerRow; i++) {
+        seats.push(`${r}${i}`);
+      }
+    });
+
+    res.json({
+      seats,
+      booked,
+      locked
+    });
+
+  } catch (err) {
+    console.error("Seat map error:", err);
+    res.status(500).json({ message: "Failed to load seats" });
   }
 });

@@ -1,4 +1,3 @@
-<!-- main.html-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,10 +11,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="icon" type="image/png" href="SpotOn.png">
+  <link rel="icon" type="image/png" href="assets/SpotOn.png">
 </head>
-
-<body>
+<body class="neon-page">
 
   <!-- Header / Nav -->
   <header class="site-header">
@@ -82,7 +80,7 @@
         <video autoplay muted loop playsinline 
                width="600" height="400"
                style="clip-path:url(#videoClip); object-fit:cover; position:absolute; top:0; left:0;">
-          <source src="SpotOn3.mp4" type="video/mp4"/>
+          <source src="assets/SpotOn3.mp4" type="video/mp4"/>
           Your browser does not support video.
         </video>
 
@@ -97,7 +95,9 @@
 
       <div>
         <h2>About SpotOn</h2>
-        <p><strong>SpotOn</strong> is your next-generation <strong>Virtual Reality (VR)</strong> ticket booking platform. Explore seats in 360° before booking to choose your perfect spot.</p>
+        <p><strong>SpotOn</strong> is your next-generation <strong>Virtual Reality (VR)</strong> ticket booking platform. Explore seats in 360° before booking to choose your perfect spot.SpotOn redefines ticket booking with immersive Virtual Reality previews.
+          Explore your seat’s real view before you book, so every experience feels personal and perfect.
+          Built with precision, comfort, and modern design at its core.</p>
 
         <ul class="checklist">
           <li>360° Seat Preview</li>
@@ -214,7 +214,23 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="js/script.js"></script>
 
+/* Mouse-reactive glow on glass elements */
+document.querySelectorAll('.card, .panel, .feature, .hero-art').forEach(el => {
+  el.addEventListener('mousemove', (e) => {
+    const r = el.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 100;
+    const y = ((e.clientY - r.top) / r.height) * 100;
+    el.style.setProperty('--mx', x + '%');
+    el.style.setProperty('--my', y + '%');
+  });
+});
+
+/* Auto dark/light */
+if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+  document.documentElement.classList.add('light');
+}
+</script>
 </body>
 </html>

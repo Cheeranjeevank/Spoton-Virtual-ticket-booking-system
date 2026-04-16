@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Verification • SpotOn</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body class="neon-page">
+
+  <header class="db-header">
+    <div class="db-header-inner">
+      <a href="dashboard.html" class="db-logo">Spot<span>On.</span> Staff</a>
+      <div class="db-spacer"></div>
+      <a href="dashboard.html" class="db-nav-link">Back to Dashboard</a>
+    </div>
+  </header>
+
+  <main class="db-main" style="max-width: 600px;">
+    <section class="db-welcome">
+      <div>
+        <h1>Ticket Verification</h1>
+        <p class="muted">Scan QR code or enter Booking ID manually</p>
+      </div>
+    </section>
+
+    <!-- Scanner Section -->
+    <div class="verify-container">
+      <div id="reader" style="width: 100%; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); background: #000;"></div>
+      
+      <div class="divider"><span>OR</span></div>
+
+      <div class="manual-entry">
+        <input type="text" id="bookingIdInput" placeholder="Enter Booking ID..." class="verify-input">
+        <button id="verifyBtn" class="db-book-btn" style="width: 100%; margin-top: 1rem;">Verify Ticket</button>
+      </div>
+    </div>
+
+    <!-- Result Modal / Section -->
+    <div id="resultOverlay" class="result-overlay" style="display: none;">
+      <div class="result-card">
+        <div id="resultIcon" class="result-icon">✔</div>
+        <h2 id="resultTitle">Verified Successfully</h2>
+        <div id="resultDetails" class="result-details">
+          <!-- Populated via JS -->
+        </div>
+        <button id="closeResult" class="db-refresh-btn" style="width: 100%; margin-top: 1.5rem; justify-content: center; padding: 12px;">Scan Next</button>
+      </div>
+    </div>
+
+  </main>
+
+  <style>
+    .verify-container {
+      background: var(--glass-bg);
+      backdrop-filter: var(--blur);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2rem;
+      margin-top: 1rem;
+      box-shadow: 0 0 40px rgba(96,165,250,0.15);
+    }
+
+    .divider {
+      text-align: center;
+      margin: 2rem 0;
+      position: relative;
+    }
+    .divider::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+      z-index: 1;
+    }
+    .divider span {
+      background: #0f1318;
+      padding: 0 1rem;
+      position: relative;
+      z-index: 2;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .verify-input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.3s ease;
+      box-sizing: border-box;
+    }
+    .verify-input:focus {
+      border-color: #6ea8fe;
+      box-shadow: 0 0 15px rgba(110,168,254,0.2);
+    }
+
+    /* Result Overlay */
+    .result-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 2rem;
+    }
+    .result-card {
+      background: #1a1f26;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 2.5rem;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+      animation: slideUp 0.4s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .result-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #4ade8020;
+      color: #4ade80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 1.5rem;
+      border: 2px solid #4ade8040;
+    }
+    .result-icon.error {
+      background: #f8717120;
+      color: #f87171;
+      border-color: #f8717140;
+    }
+
+    .result-details {
+      text-align: left;
+      margin-top: 1.5rem;
+      background: rgba(255,255,255,0.03);
+      padding: 1.2rem;
+      border-radius: 16px;
+      font-size: 0.9rem;
+    }
+    .res-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .res-label { color: var(--muted); }
+    .res-val { font-weight: 600; color: #fff; }
+  </style>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) location.href = "login.html";
+
+    // Dynamic API base
+    function getApiBase() {
+      const origin = window.location.origin;
+      if (origin.includes(".devtunnels.ms")) return origin + "/api";
+      if (origin.includes("localhost") || origin.includes("127.0.0.1"))
+        return "http://localhost:5507/api";
+      return origin + "/api";
+    }
+    const API_BASE = getApiBase();
+
+    const bookingIdInput = document.getElementById("bookingIdInput");
+    const verifyBtn = document.getElementById("verifyBtn");
+    const resultOverlay = document.getElementById("resultOverlay");
+    const closeResult = document.getElementById("closeResult");
+
+    async function handleVerification(id) {
+      if (!id) return;
+      
+      try {
+        const res = await fetch(`${API_BASE}/ticket/verify`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token 
+          },
+          body: JSON.stringify({ bookingId: id })
+        });
+
+        const data = await res.json();
+        showResult(res.ok, data);
+      } catch (err) {
+        showResult(false, { message: "Server connection failed" });
+      }
+    }
+
+    function showResult(success, data) {
+      const title = document.getElementById("resultTitle");
+      const icon = document.getElementById("resultIcon");
+      const details = document.getElementById("resultDetails");
+
+      if (success) {
+        title.textContent = "Verified Successfully";
+        icon.textContent = "✔";
+        icon.classList.remove("error");
+        details.innerHTML = `
+          <div class="res-row"><span class="res-label">Movie:</span> <span class="res-val">${data.movie}</span></div>
+          <div class="res-row"><span class="res-label">Seats:</span> <span class="res-val">${data.seats}</span></div>
+          <div class="res-row"><span class="res-label">Count:</span> <span class="res-val">${data.count}</span></div>
+          <div class="res-row"><span class="res-label">Status:</span> <span class="res-val" style="color:#4ade80">${data.status}</span></div>
+        `;
+      } else {
+        title.textContent = "Verification Failed";
+        icon.textContent = "✖";
+        icon.classList.add("error");
+        details.innerHTML = `<p style="text-align:center; color:#f87171;">${data.message || "Invalid Ticket"}</p>`;
+      }
+
+      resultOverlay.style.display = "flex";
+    }
+
+    verifyBtn.onclick = () => handleVerification(bookingIdInput.value.trim());
+    closeResult.onclick = () => {
+      resultOverlay.style.display = "none";
+      bookingIdInput.value = "";
+    };
+
+    /* QR SCANNER */
+    function onScanSuccess(decodedText) {
+      console.log("Scanned:", decodedText);
+      
+      // Handle URL format: http://.../check.html?id=ID
+      if (decodedText.includes("check.html?id=")) {
+        try {
+          const url = new URL(decodedText);
+          const id = url.searchParams.get("id");
+          if (id) {
+            handleVerification(id);
+            return;
+          }
+        } catch(e) {
+          console.error("URL parse error", e);
+        }
+      }
+
+      // Fallback for legacy "SpotOnTicket:..." or raw ID
+      if (decodedText.startsWith("SpotOnTicket:")) {
+        try {
+          const json = JSON.parse(decodedText.replace("SpotOnTicket:", ""));
+          handleVerification(json.id);
+        } catch(e) {
+          showResult(false, { message: "Invalid QR format" });
+        }
+      } else {
+        // Fallback for raw ID
+        handleVerification(decodedText);
+      }
+    }
+
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader", { fps: 10, qrbox: 250 });
+    html5QrcodeScanner.render(onScanSuccess);
+
+  </script>
+</body>
+</html>

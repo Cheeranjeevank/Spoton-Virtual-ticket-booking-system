@@ -1,16 +1,21 @@
-const jwt = require("jsonwebtoken");
+import jwt from "jsonwebtoken";
 
-function auth(req, res, next) {
-  const token = req.header("Authorization")?.split(" ")[1];
-  if (!token) return res.status(401).json({ msg: "No token, access denied" });
+export default function auth(req, res, next) {
+  const header = req.headers.authorization;
+
+  if (!header)
+    return res.status(401).json({ message: "No token, access denied" });
 
   try {
+    const token = header.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Attach user info from token
     req.user = decoded.id;
+    req.userRole = decoded.role; // needed for staff/admin checks
+
     next();
   } catch (err) {
-    res.status(401).json({ msg: "Invalid token" });
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
-
-module.exports = auth;
